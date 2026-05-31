@@ -1,0 +1,67 @@
+### Velt Backend — flujo de punta a punta (criterios de aceptación 1→6)
+### Usar con la extensión "REST Client" de VS Code, o traducir a curl.
+### Para el WebSocket (paso 3) usa wscat/websocat — ver README.
+
+@host = http://localhost:3000
+@api = {{host}}/api/v1
+
+### 0. Health
+GET {{host}}/health
+
+### 1. Crear comerciante  → guarda el "id" en @merchantId
+# @name createMerchant
+POST {{api}}/merchants
+Content-Type: application/json
+
+{
+  "name": "Cafe Brooklyn",
+  "smartAccountAddress": "0x1111111111111111111111111111111111111111"
+}
+
+### (copiar el id de la respuesta anterior)
+@merchantId = PEGA_AQUI_EL_MERCHANT_ID
+
+### 2. Iniciar cobro  → guarda "paymentId" y abre el WS con "wsUrl"
+# @name initiate
+POST {{api}}/payments/initiate
+Content-Type: application/json
+
+{
+  "merchantId": "{{merchantId}}",
+  "amount": 4.00
+}
+
+### (copiar el paymentId de la respuesta anterior)
+@paymentId = PEGA_AQUI_EL_PAYMENT_ID
+
+### 3. (en otra terminal) abrir el WebSocket ANTES de autorizar:
+###   wscat -c ws://localhost:3000/ws/payments/<paymentId>
+
+### 4. Autorizar con el personId resuelto por el bioserver
+POST {{api}}/payments/authorize
+Content-Type: application/json
+
+{
+  "paymentId": "{{paymentId}}",
+  "personId": "abc-123"
+}
+
+### 6. Consultar estado final (fallback del WS)
+GET {{api}}/payments/{{paymentId}}
+
+### ── Casos de validación (deben fallar con 4xx) ──
+
+### amount inválido → 400
+POST {{api}}/payments/initiate
+Content-Type: application/json
+
+{ "merchantId": "{{merchantId}}", "amount": 0 }
+
+### personId vacío → 400
+POST {{api}}/payments/authorize
+Content-Type: application/json
+
+{ "paymentId": "{{paymentId}}", "personId": "" }
+
+### pago inexistente → 404
+GET {{api}}/payments/00000000-0000-0000-0000-000000000000

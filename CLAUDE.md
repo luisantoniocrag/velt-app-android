@@ -5,13 +5,16 @@ Monorepo del proyecto Velt: validación biométrica de **palma** con el sensor *
 ```
 .
 ├── android-app/   # app Android (Kotlin + Jetpack Compose) — proyecto Gradle
-└── backend/       # backend (en construcción)
+└── backend/       # backend Node/TypeScript (pagos USDC en Arc) — v1 core
 ```
 
 - **`android-app/`** — la app se conecta al sensor por Bluetooth, captura el template biométrico
   y lo verifica contra el bioserver. Abre Android Studio apuntando a esta carpeta (ahí vive el
   `settings.gradle.kts`).
-- **`backend/`** — aún sin contenido; el stack se definirá aquí.
+- **`backend/`** — "cerebro" de pagos: recibe un `personId` (palma identificada), lo mapea a una
+  smart account ERC-4337 y ejecuta una transferencia USDC en Arc. Stack: Node 20 + TypeScript +
+  Fastify + Supabase + viem/permissionless. Ver [`backend/README.md`](backend/README.md). El build
+  se valida con `cd backend && npm run typecheck`.
 
 > Estado actual de la app: la **app principal está en construcción**. Lo implementado hoy son las
 > herramientas del sensor, accesibles desde un **menú de Configuración**.
