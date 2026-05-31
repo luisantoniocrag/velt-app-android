@@ -1,17 +1,29 @@
-# Velt — App Android
+# Velt — Monorepo
 
-App Android (Kotlin + Jetpack Compose) para validación biométrica de **palma** con el sensor
-**Velt**. La app se conecta al sensor por Bluetooth, captura el template biométrico y lo verifica
-contra el bioserver.
+Monorepo del proyecto Velt: validación biométrica de **palma** con el sensor **Velt**.
 
-> Estado actual: la **app principal está en construcción**. Lo implementado hoy son las
+```
+.
+├── android-app/   # app Android (Kotlin + Jetpack Compose) — proyecto Gradle
+└── backend/       # backend (en construcción)
+```
+
+- **`android-app/`** — la app se conecta al sensor por Bluetooth, captura el template biométrico
+  y lo verifica contra el bioserver. Abre Android Studio apuntando a esta carpeta (ahí vive el
+  `settings.gradle.kts`).
+- **`backend/`** — aún sin contenido; el stack se definirá aquí.
+
+> Estado actual de la app: la **app principal está en construcción**. Lo implementado hoy son las
 > herramientas del sensor, accesibles desde un **menú de Configuración**.
 
 ---
 
 ## Build & Run
 
+Todos los comandos Gradle se ejecutan desde `android-app/`:
+
 ```bash
+cd android-app
 ./gradlew :app:assembleDebug        # compilar APK debug
 ./gradlew :app:installDebug         # instalar en dispositivo/emulador conectado
 ./gradlew :app:compileDebugKotlin   # solo compilar Kotlin (verificación rápida)
@@ -19,7 +31,7 @@ contra el bioserver.
 
 - `minSdk = 29`, `targetSdk = 36`, `compileSdk = 36`, namespace `com.velt`.
 - Tras cambios de **permisos en el manifest**, reinstalar limpio:
-  `adb uninstall com.velt && ./gradlew :app:installDebug`.
+  `adb uninstall com.velt && ./gradlew :app:installDebug` (desde `android-app/`).
 
 ### Diagnóstico (logcat)
 
@@ -32,6 +44,8 @@ Etiquetas de log relevantes: `VeltSensorClient`, `VeltSensorRepository`, `VeltSe
 ---
 
 ## Estructura
+
+Código fuente en `android-app/app/src/main/java/com/velt/`:
 
 ```
 com.velt/

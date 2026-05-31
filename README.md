@@ -1,13 +1,20 @@
-# velt-app-android
+# velt
 
-App Android (Kotlin + Jetpack Compose) para validación biométrica de palma con el sensor **Velt**.
+Monorepo del proyecto Velt: validación biométrica de palma con el sensor **Velt**.
 
-La app se conecta al sensor por Bluetooth (wake BLE + SPP/RFCOMM), captura el template biométrico
-y lo verifica contra el bioserver.
+```
+.
+├── android-app/   # app Android (Kotlin + Jetpack Compose)
+└── backend/       # backend (en construcción)
+```
 
-## Build
+La app Android se conecta al sensor por Bluetooth (wake BLE + SPP/RFCOMM), captura el template
+biométrico y lo verifica contra el bioserver.
+
+## Build (android-app)
 
 ```bash
+cd android-app
 ./gradlew :app:assembleDebug
 ./gradlew :app:installDebug
 ```
