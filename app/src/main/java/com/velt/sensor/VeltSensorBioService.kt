@@ -1,0 +1,130 @@
+package com.velt.sensor
+
+import android.util.Log
+import com.google.gson.GsonBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+
+/**
+ * Cliente HTTP para comunicación con el servidor biométrico (Fulcrum).
+ *
+ * En esta app de ejemplo solo se implementa la verificación (identify): se envía el
+ * template capturado y se devuelve la respuesta del bioserver tal cual.
+ */
+object VeltSensorBioService {
+    private const val TAG = "VeltSensorBioService"
+    private val client = buildUnsafeClient()
+    private val JSON = "application/json".toMediaType()
+
+    /**
+     * POST /api/subject/identify — verifica un template biométrico contra el bioserver.
+     *
+     * @param template Template biométrico en formato Fujitsu R-format (Base64).
+     * @return Pair<httpStatusCode, responseBody>. Status -1 indica error de red/excepción.
+     */
+    suspend fun verifyUser(template: String): Pair<Int, String> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "🌐 Verificando template con el bioserver (${template.length} chars)")
+
+        val payload = listOf(
+            mapOf(
+                "biolocation" to "UnknownPalmVeinCapture",
+                "templates" to listOf(
+                    mapOf(
+                        "type" to "FujitsuRFormat",
+                        "template" to template
+                    )
+                )
+            )
+        )
+
+        val timestamp = System.currentTimeMillis() / 1000
+        val nonceBytes = ByteArray(36).also { SecureRandom().nextBytes(it) }
+        val nonce = nonceBytes.toHex()
+
+        val auth = buildAuthorization(payload, "post", "api/subject/identify", timestamp, nonce)
+
+        val gson = GsonBuilder().disableHtmlEscaping().create()
+        val jsonBody = gson.toJson(payload)
+
+        val req = Request.Builder()
+            .url("${VeltSensorConfig.ENDPOINT}api/subject/identify")
+            .post(jsonBody.toRequestBody(JSON))
+            .addHeader("Authorization", auth)
+            .addHeader("Content-Type", "application/json")
+            .build()
+
+        try {
+            Log.d(TAG, "🚀 POST ${req.url}")
+            client.newCall(req).execute().use { resp ->
+                val body = resp.body?.string().orEmpty()
+                Log.d(TAG, "📡 Respuesta bioserver: HTTP ${resp.code} (${body.length} chars)")
+                resp.code to body
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error comunicando con el bioserver: ${e.message}", e)
+            -1 to (e.message ?: "Error de red")
+        }
+    }
+
+    /**
+     * Construye el header de autorización HMAC-SHA256 que exige el bioserver.
+     *
+     * El payload firmado incluye body, clientId, método, nonce, path, query y timestamp.
+     */
+    private fun buildAuthorization(
+        body: Any,
+        method: String,
+        path: String,
+        timestamp: Long,
+        nonce: String
+    ): String {
+        val bodyAuth = mapOf(
+            "body" to body,
+            "clientId" to VeltSensorConfig.CLIENT_ID,
+            "method" to method,
+            "nonce" to nonce,
+            "path" to path,
+            "query" to emptyMap<String, Any>(),
+            "timestamp" to timestamp
+        )
+
+        val jsonPayload = GsonBuilder().disableHtmlEscaping().create().toJson(bodyAuth)
+
+        val mac = Mac.getInstance("HmacSHA256").apply {
+            init(SecretKeySpec(VeltSensorConfig.SHARED_SECRET.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+        }
+        val signature = mac.doFinal(jsonPayload.toByteArray(Charsets.UTF_8))
+        return "MAC ${signature.toHex()}, clientId=${VeltSensorConfig.CLIENT_ID}, nonce=$nonce, timestamp=$timestamp"
+    }
+
+    /**
+     * Cliente que acepta cualquier certificado TLS. SOLO para desarrollo/sandbox.
+     */
+    private fun buildUnsafeClient(): OkHttpClient {
+        val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        })
+        val sslContext = SSLContext.getInstance("SSL").apply {
+            init(null, trustAll, SecureRandom())
+        }
+        return OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustAll[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
+            .build()
+    }
+
+    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
+}
