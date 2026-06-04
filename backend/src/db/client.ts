@@ -2,13 +2,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
 import { config } from "../config.js";
 
-/**
- * Cliente Supabase con la service key (acceso server-side, salta RLS).
- * Una sola instancia compartida en todo el proceso.
- *
- * No usamos realtime, pero supabase-js construye su RealtimeClient siempre y en
- * Node < 22 no hay WebSocket nativo; le pasamos el de `ws` para evitar el crash.
- */
+// Service key: acceso server-side, salta RLS. No usamos realtime, pero supabase-js
+// construye su RealtimeClient siempre y Node < 22 no trae WebSocket nativo; le pasamos
+// el de `ws` para evitar el crash.
 export const db: SupabaseClient = createClient(
   config.SUPABASE_URL,
   config.SUPABASE_SERVICE_KEY,
@@ -19,7 +15,7 @@ export const db: SupabaseClient = createClient(
   },
 );
 
-// ── Tipos de fila (espejo de schema.sql) ──────────────────────────────
+// Tipos de fila (espejo de schema.sql).
 export type PaymentStatus = "pending" | "authorizing" | "settled" | "failed";
 
 export interface MerchantRow {

@@ -1,7 +1,3 @@
-/**
- * Errores tipados con código HTTP asociado. El handler de errores de Fastify
- * los mapea a la respuesta JSON correcta (4xx). Cualquier otro error → 500 genérico.
- */
 export class AppError extends Error {
   constructor(
     public readonly statusCode: number,

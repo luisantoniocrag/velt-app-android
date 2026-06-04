@@ -42,24 +42,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 
-/**
- * Prefijo con el que el sensor Velt se anuncia por Bluetooth.
- * NOTA: "OpenPalm" es el nombre de fábrica del hardware; debe coincidir literalmente para
- * descubrir/filtrar el dispositivo, por eso no forma parte del branding de la app.
- */
+// "OpenPalm" es el nombre de fábrica del hardware; debe coincidir literalmente para filtrar el dispositivo.
 private const val DEVICE_NAME_PREFIX = "OpenPalm"
 
-/** True si el nombre del dispositivo empieza por [DEVICE_NAME_PREFIX]. */
 @SuppressLint("MissingPermission")
 private fun BluetoothDevice.isVeltSensor(): Boolean =
     name?.startsWith(DEVICE_NAME_PREFIX, ignoreCase = true) == true
 
-/**
- * Pantalla de gestión Bluetooth: lista dispositivos emparejados, busca y empareja nuevos,
- * y permite seleccionar el dispositivo SPP que usará el flujo de palma.
- *
- * Solo se muestran los dispositivos cuyo nombre empieza por el prefijo configurado.
- */
 @SuppressLint("MissingPermission")
 @Composable
 fun BluetoothScreen(
@@ -101,7 +90,6 @@ fun BluetoothScreen(
         }
     }
 
-    // Receiver para descubrimiento, estado del adaptador y cambios de emparejamiento.
     DisposableEffect(Unit) {
         refreshPaired()
         val receiver = object : BroadcastReceiver() {
@@ -193,7 +181,6 @@ fun BluetoothScreen(
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Reintentar") }
         } else {
-            // Botón de búsqueda
             Button(
                 onClick = {
                     if (isScanning) {

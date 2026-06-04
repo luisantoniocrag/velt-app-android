@@ -36,23 +36,15 @@ import java.io.IOException
 import java.util.Base64
 import java.util.UUID
 
-/**
- * Cliente Bluetooth SPP (RFCOMM) para el sensor Velt.
- *
- * Flujo: wake BLE (0x01 al servicio 0x1815) -> conectar SPP -> enviar comando capture ->
- * recibir eventos JSON del sensor (posición de mano, captura del template, ACK...).
- */
 class VeltSensorClient(
     private val context: Context,
-    private val sppDeviceName: String? = null // null = primer dispositivo emparejado / prefijo del sensor
+    private val sppDeviceName: String? = null
 ) {
     companion object {
         private const val TAG = "VeltSensorClient"
         private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-        // Servicio/característica BLE para despertar el subsistema de captura del sensor.
         private val WAKE_SERVICE_UUID: UUID = UUID.fromString("00001815-0000-1000-8000-00805F9B34FB")
         private val WAKE_CHAR_UUID: UUID = UUID.fromString("00001815-0000-1000-8000-00805F9B34FB")
-        // Característica estándar "Digital" de Automation IO (0x1815), usada como fallback.
         private val AUTOMATION_IO_DIGITAL_UUID: UUID = UUID.fromString("00002A56-0000-1000-8000-00805F9B34FB")
     }
 
@@ -68,7 +60,6 @@ class VeltSensorClient(
     private val _events = MutableSharedFlow<Event>(replay = 0, extraBufferCapacity = 64)
     val events: SharedFlow<Event> = _events.asSharedFlow()
 
-    /** Estados de posición de mano reportados por el sensor. */
     enum class HandPositionStatus {
         NO_HANDS, NONE, ONLY_Z, ONLY_XYZ, ONLY_XYZ_AND_YAW, ALL, AWAY_HANDS, UNKNOWN;
 
@@ -146,7 +137,6 @@ class VeltSensorClient(
                     if (!done.isCompleted) done.complete(false)
                     return
                 }
-                // Volcar el GATT real para diagnóstico.
                 Log.d(TAG, "🔵 BLE servicios descubiertos: ${g.services.size}")
                 g.services.forEach { svc ->
                     Log.d(TAG, "   📦 Servicio ${svc.uuid}")
@@ -155,7 +145,6 @@ class VeltSensorClient(
                     }
                 }
 
-                // Buscar la característica de WAKE: exacta -> Automation IO Digital -> primera escribible.
                 val svc = g.getService(WAKE_SERVICE_UUID)
                 if (svc == null) {
                     emitError("Servicio WAKE 0x1815 no encontrado en el dispositivo BLE")
@@ -197,7 +186,6 @@ class VeltSensorClient(
         }
     }
 
-    /** Escribe 0x01 en la característica de WAKE, usando la API correcta según la versión. */
     @SuppressLint("MissingPermission")
     private fun writeWake(g: BluetoothGatt, ch: BluetoothGattCharacteristic): Boolean {
         val value = byteArrayOf(0x01)
@@ -215,10 +203,6 @@ class VeltSensorClient(
         }
     }
 
-    /**
-     * Conecta vía SPP al sensor y arranca el lector continuo del socket.
-     * Reintenta hasta [maxRetries] veces antes de fallar.
-     */
     @SuppressLint("MissingPermission")
     fun connectClassicAndStartReader(): Deferred<Boolean> = scope.async {
         val adapter = adapter
@@ -337,7 +321,6 @@ class VeltSensorClient(
 
     private fun parseAndHandle(jsonStr: String) {
         if (jsonStr.isBlank()) return
-        // Log crudo de TODO lo que envía el sensor, para diagnosticar el formato real.
         Log.d(TAG, "📥 JSON recibido: ${jsonStr.take(300)}")
         try {
             val json = JSONObject(jsonStr)
@@ -375,13 +358,10 @@ class VeltSensorClient(
         }
     }
 
-    // --- Comandos (JSON + '\r') ---
-
     suspend fun sendCapture(): Boolean = sendCommand("""{"cmd":"capture"}""")
     suspend fun sendIdle(): Boolean = sendCommand("""{"cmd":"idle"}""")
     suspend fun sendSleep(): Boolean = sendCommand("""{"cmd":"sleep"}""")
 
-    /** Configura el color del LED del sensor (0xRRGGBB) y su parpadeo. */
     suspend fun setColor(
         rgbInt: Int,
         blinkEnabled: Boolean,
@@ -412,8 +392,6 @@ class VeltSensorClient(
         }
     }
 
-    // --- Utilidades ---
-
     @SuppressLint("MissingPermission")
     private fun resolveDevice(adapter: BluetoothAdapter): BluetoothDevice? {
         val bonded = adapter.bondedDevices ?: emptySet()
@@ -421,7 +399,6 @@ class VeltSensorClient(
             return bonded.firstOrNull { it.address.equals(sppDeviceName, ignoreCase = true) }
                 ?: bonded.firstOrNull { it.name.equals(sppDeviceName, ignoreCase = true) }
         }
-        // Preferir un dispositivo cuyo nombre empiece por el prefijo del sensor; si no, el primero emparejado.
         return bonded.firstOrNull { it.name?.startsWith("OpenPalm", ignoreCase = true) == true }
             ?: bonded.firstOrNull()
     }

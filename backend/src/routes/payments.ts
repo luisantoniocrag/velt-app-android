@@ -25,7 +25,6 @@ const authorizeSchema = z.object({
 });
 
 export async function paymentRoutes(app: FastifyInstance): Promise<void> {
-  // 6.2 POST /api/v1/payments/initiate ───────────────────────────────
   app.post("/payments/initiate", async (request, reply) => {
     const parsed = initiateSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -33,7 +32,6 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
     }
     const { merchantId, amount } = parsed.data;
 
-    // merchantId debe existir.
     const { data: merchant } = await db
       .from("merchants")
       .select("id")
@@ -59,7 +57,6 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
-  // 6.3 POST /api/v1/payments/authorize ──────────────────────────────
   app.post("/payments/authorize", async (request, reply) => {
     const parsed = authorizeSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -102,7 +99,6 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
     return reply;
   });
 
-  // 6.4 GET /api/v1/payments/:id ─────────────────────────────────────
   app.get<{ Params: { id: string } }>("/payments/:id", async (request, reply) => {
     const idCheck = uuid.safeParse(request.params.id);
     if (!idCheck.success) throw badRequest("id de pago inválido", "validation_error");
@@ -124,11 +120,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
   });
 }
 
-/**
- * Orquesta la parte asíncrona del pago: crea la cuenta del pagador si hace falta,
- * ejecuta la transferencia USDC on-chain y emite los eventos WS correspondientes.
- * Nunca lanza: cualquier fallo se traduce a status=failed + evento WS.
- */
+// Parte asíncrona del pago. Nunca lanza: cualquier fallo → status=failed + evento WS.
 async function settlePayment(args: {
   log: FastifyBaseLogger;
   payment: PaymentRequestRow;
@@ -137,23 +129,20 @@ async function settlePayment(args: {
   const { log, payment, personId } = args;
   const paymentId = payment.id;
 
-  // Avisar de inmediato que estamos autorizando.
   emitPaymentEvent({ type: "authorizing", paymentId });
 
   try {
     const signer = await getSigner();
 
-    // 1. Smart account del pagador (idempotente; crea/deriva la primera vez).
+    // Idempotente: deja caliente el mapa address→personId que necesita signAndSendUserOp.
     const { address: payerAddress } = await signer.getOrCreateAccount(personId);
 
-    // 2. Asegurar el registro velt_users (crear si es nuevo personId).
     const user = await ensureVeltUser(personId, payerAddress, log);
     await db
       .from("payment_requests")
       .update({ payer_user_id: user.id })
       .eq("id", paymentId);
 
-    // 3. Resolver destino = smart account del comerciante.
     const { data: merchant } = await db
       .from("merchants")
       .select("smart_account_address")
@@ -161,7 +150,7 @@ async function settlePayment(args: {
       .maybeSingle<Pick<MerchantRow, "smart_account_address">>();
     if (!merchant) throw new Error("merchant desapareció durante la liquidación");
 
-    // 4. Transferir USDC (espera recibo on-chain).
+    // parseUnits(String(...)): PostgREST devuelve numeric como string.
     const amountUsdc = parseUnits(String(payment.amount), USDC_DECIMALS);
     const { txHash } = await signer.signAndSendUserOp({
       from: payerAddress,
@@ -169,7 +158,6 @@ async function settlePayment(args: {
       amountUsdc,
     });
 
-    // 5. Liquidado.
     await db
       .from("payment_requests")
       .update({ status: "settled", tx_hash: txHash })
@@ -177,14 +165,12 @@ async function settlePayment(args: {
     emitPaymentEvent({ type: "settled", paymentId, txHash, payerPersonId: personId });
   } catch (err) {
     const reason = classifyFailure(err);
-    // El motivo detallado solo va al log; al cliente, un código genérico.
     log.error({ err, paymentId }, `pago fallido: ${reason}`);
     await db.from("payment_requests").update({ status: "failed" }).eq("id", paymentId);
     emitPaymentEvent({ type: "failed", paymentId, reason });
   }
 }
 
-/** Busca o crea el velt_user para un personId. */
 async function ensureVeltUser(
   personId: string,
   smartAccountAddress: string,
@@ -216,7 +202,6 @@ async function ensureVeltUser(
   return data;
 }
 
-/** Traduce un error de la capa on-chain a un motivo genérico para el cliente. */
 function classifyFailure(err: unknown): string {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   if (msg.includes("insufficient") || msg.includes("balance") || msg.includes("funds")) {

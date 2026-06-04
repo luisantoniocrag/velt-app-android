@@ -48,14 +48,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.util.Base64
 
-// ---------------------------------------------------------------------------
-// Home
-// ---------------------------------------------------------------------------
-
-/**
- * Pantalla principal (placeholder). La app principal se construirá aquí más adelante; por ahora
- * solo da acceso al menú de Configuración.
- */
 @Composable
 fun HomeScreen(
     onConfigClick: () -> Unit
@@ -93,13 +85,6 @@ fun HomeScreen(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Menú de Configuración
-// ---------------------------------------------------------------------------
-
-/**
- * Menú de configuración: agrupa las herramientas del sensor (emparejar Bluetooth y validar palma).
- */
 @Composable
 fun ConfigMenuScreen(
     selectedDeviceName: String?,
@@ -152,10 +137,6 @@ fun ConfigMenuScreen(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Validación de palma
-// ---------------------------------------------------------------------------
-
 private enum class PalmStage { CONNECTING, SCANNING, VERIFYING, RESULT, ERROR }
 
 @Composable
@@ -175,7 +156,6 @@ fun PalmValidationScreen(
     var attemptKey by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(attemptKey) {
-        // Reset de estado por intento
         stage = PalmStage.CONNECTING
         statusMessage = "Conectando con el sensor..."
         handMessage = null
@@ -218,7 +198,6 @@ fun PalmValidationScreen(
         }
 
         try {
-            // 1) Wake BLE + conexión SPP + comando capture
             val started = withTimeoutOrNull(
                 VeltSensorConfig.BLE_CONNECT_TIMEOUT_MS + VeltSensorConfig.SPP_CONNECT_TIMEOUT_MS
             ) {
@@ -226,17 +205,14 @@ fun PalmValidationScreen(
             } ?: false
             if (!started) throw Exception("No se pudo conectar con el dispositivo Velt")
 
-            // 2) Escaneo: esperar el evento Capture con el template
             stage = PalmStage.SCANNING
             statusMessage = "Coloca tu palma sobre el sensor"
-            // LED blanco parpadeante = indicador "listo para escanear" (igual que la impl. de referencia).
             repo.setLedWhiteBlink()
 
             val template = withTimeoutOrNull(VeltSensorConfig.CAPTURE_TIMEOUT_MS) {
                 templateDeferred.await()
             } ?: throw Exception("Tiempo de espera agotado esperando la palma")
 
-            // 3) Verificación con el bioserver
             stage = PalmStage.VERIFYING
             statusMessage = "Verificando con el bioserver..."
             repo.stopCapture()
@@ -249,7 +225,6 @@ fun PalmValidationScreen(
             responseBody = body
             summary = buildSummary(code, body)
 
-            // El flujo termina aquí: se recibió la respuesta del bioserver.
             stage = PalmStage.RESULT
         } catch (e: Exception) {
             errorMessage = e.message ?: "Error desconocido"
@@ -301,7 +276,6 @@ fun PalmValidationScreen(
             Text(handMessage!!, color = Color(0xFF2196F3), fontWeight = FontWeight.Bold)
         }
 
-        // Resultado del bioserver
         if (stage == PalmStage.RESULT) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -337,7 +311,6 @@ fun PalmValidationScreen(
     }
 }
 
-/** Resume la respuesta del bioserver para mostrarla de forma legible. */
 private fun buildSummary(code: Int, body: String): String {
     if (code == -1) return "Error de red: $body"
     if (code != 200) return "El bioserver respondió con error (HTTP $code)"

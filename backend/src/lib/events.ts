@@ -1,10 +1,5 @@
-/**
- * Emisor de eventos WebSocket indexado por paymentId.
- *
- * v1: un solo cliente por pago (la app del comerciante). No hace broadcast.
- * Si no hay socket conectado en el momento del evento, este se descarta sin error
- * (el estado igual queda en la DB y la app puede consultar GET /payments/:id).
- */
+// v1: un solo cliente por pago, sin broadcast. Si no hay socket conectado, el evento
+// se descarta sin error (el estado igual queda en la DB → GET /payments/:id).
 
 interface WsLike {
   send(data: string): void;
@@ -30,10 +25,6 @@ export function unregisterSocket(paymentId: string, socket: WsLike): void {
   if (sockets.get(paymentId) === socket) sockets.delete(paymentId);
 }
 
-/**
- * Emite un evento al cliente del pago. Cierra el socket tras un evento terminal
- * (settled / failed), como pide la spec (sección 8).
- */
 export function emitPaymentEvent(event: PaymentEvent): void {
   const socket = sockets.get(event.paymentId);
   if (!socket || socket.readyState !== WS_OPEN) return;

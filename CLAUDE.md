@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Velt — Monorepo
 
 Monorepo del proyecto Velt: validación biométrica de **palma** con el sensor **Velt**.
@@ -18,6 +22,12 @@ Monorepo del proyecto Velt: validación biométrica de **palma** con el sensor *
 
 > Estado actual de la app: la **app principal está en construcción**. Lo implementado hoy son las
 > herramientas del sensor, accesibles desde un **menú de Configuración**.
+
+## Convenciones de código
+
+- **Código autoexplicable, sin comentarios.** Prioriza nombres claros y buena estructura en lugar de
+  comentarios. Solo añade comentarios cuando la lógica sea genuinamente compleja, y en ese caso
+  explica el *por qué*, no el *qué*.
 
 ---
 
@@ -119,7 +129,78 @@ hardware, no parte del branding de la app).
 
 ---
 
-## Notas / gotchas importantes
+## Backend — pagos USDC en Arc
+
+> Detalle completo en [`backend/README.md`](backend/README.md). Esto es el mapa de arquitectura.
+
+Servicio Fastify (sin UI, sin matching biométrico) que recibe un `personId` ya resuelto por el
+bioserver y liquida un pago USDC on-chain. Stack: **Node 20 + TypeScript (strict) + Fastify +
+`@fastify/websocket` + Supabase (PostgREST) + viem/permissionless (ERC-4337) + zod**.
+
+### Comandos (desde `backend/`)
+
+```bash
+npm run dev         # tsx watch — arranca en http://localhost:3000
+npm run typecheck   # tsc --noEmit — verificación rápida (la fuente de verdad del build)
+npm run build       # tsc -p tsconfig.json → dist/
+npm start           # node dist/index.js (producción)
+```
+
+- No hay framework de tests todavía. La verificación E2E es manual: [`backend/requests.http`](backend/requests.http)
+  para el HTTP y `wscat -c ws://localhost:3000/ws/payments/<paymentId>` para el WS.
+- Config validada con zod al arranque (`src/config.ts`): si falta una env var, el proceso **falla
+  ruidosamente**. Copiar `.env.example` → `.env`. Las tablas se crean pegando `src/db/schema.sql`
+  en el editor SQL de Supabase.
+
+### Ciclo de vida de un pago (la pieza central)
+
+El estado vive en `payment_requests.status`: `pending → authorizing → settled | failed`.
+
+1. `POST /api/v1/payments/initiate` (`merchantId`, `amount`) → crea fila `pending`, devuelve
+   `paymentId` + `wsUrl`. La app del comerciante abre el WS **inmediatamente** (antes de authorize).
+2. `POST /api/v1/payments/authorize` (`paymentId`, `personId`) → hace un **claim atómico**
+   (`UPDATE ... WHERE status='pending'`): solo un authorize gana la carrera. Responde **`202` y
+   liquida en segundo plano** (`void settlePayment(...)`) — la confirmación on-chain es asíncrona.
+3. `settlePayment` (en `routes/payments.ts`) nunca lanza: deriva/crea la smart account del pagador,
+   asegura `velt_users`, resuelve la cuenta del comerciante, transfiere USDC y marca `settled`
+   (con `tx_hash`) o `failed`. Cada transición emite un evento WS.
+4. `GET /api/v1/payments/:id` es el **fallback** si el WS no estaba conectado — el estado siempre
+   persiste en la DB aunque el evento se pierda.
+
+### Capa de firma — interfaz `Signer` (`src/chain/signer.ts`)
+
+Todo el on-chain está detrás de `Signer` y se elige por `SIGNER_BACKEND`; el resto del backend no
+cambia al migrar entre enfoques:
+
+- **`local`** (`localSigner.ts`) — **único implementado** (Enfoque A, hackathon). El backend custodia
+  `LOCAL_SIGNER_MASTER_KEY`; el owner de cada smart account se deriva determinista:
+  `ownerPrivKey = keccak256("<masterKey>:<personId>")`. La dirección es **contrafactual** (válida
+  sin desplegar); el primer UserOp incluye el initCode que despliega la cuenta.
+- **`privy` / `turnkey`** — stubs (`throw "not implemented"`), el camino de producción (firma externa,
+  el backend nunca toca la llave). Notas de implementación dentro de cada archivo.
+
+### Notas / gotchas del backend
+
+- **`202` + liquidación en background**: `authorize` responde antes de que el pago termine. El
+  resultado real (`settled`/`failed` + `txHash`) llega **solo por WebSocket** o por `GET /payments/:id`.
+- **Registro de sockets en memoria** (`lib/events.ts`): un solo socket por `paymentId`, sin broadcast,
+  sin persistencia. Se cierra tras un evento terminal. Sirve para una instancia; escalar a varias
+  requiere un bus externo.
+- **Mapa `address→personId` en proceso** (`LocalSigner`): `signAndSendUserOp` re-deriva el owner desde
+  ese mapa, que solo se llena al llamar `getOrCreateAccount`. Funciona porque `settlePayment` **siempre**
+  llama `getOrCreateAccount` antes de firmar (mapa caliente). Un firmar "en frío" por dirección fallaría.
+- **`amount` numeric**: PostgREST suele devolver `numeric(18,6)` como **string**; se convierte con
+  `parseUnits(String(amount), 6)` (`USDC_DECIMALS`). No asumir `number`.
+- **Cuenta sin fondos → `failed` (saldo insuficiente)** es el comportamiento correcto de v1; el funding
+  (Blink) llega en v2.
+- **Supabase con service key** (`db/client.ts`): salta RLS. Se le inyecta el `WebSocket` de `ws` porque
+  supabase-js construye su RealtimeClient siempre y Node <22 no trae WS nativo (aunque no usamos realtime).
+- **Alcance v1 = solo core**: NO incluye ENS, Blink, Unlink, session keys, multi-chain, QR, apps
+  iOS/Watch, login de comerciante ni rate limiting. Marcado como `// TODO v2` donde aplica.
+
+---
+
+## Notas / gotchas importantes (app Android)
 
 - **`registerReceiver` en Android 13+**: debe declarar exportación. Se usa
   `ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)`. Omitirlo lanza `SecurityException`

@@ -4,12 +4,6 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.delay
 
-/**
- * Orquesta la comunicación con el sensor Velt vía [VeltSensorClient].
- *
- * El flujo de verificación con el bioserver lo realiza la UI usando [events] +
- * [VeltSensorBioService.verifyUser].
- */
 class VeltSensorRepository(
     ctx: Context,
     sppDeviceName: String? = VeltSensorConfig.SPP_DEVICE_NAME
@@ -22,13 +16,9 @@ class VeltSensorRepository(
 
     val events = client.events
 
-    /**
-     * Inicia la sesión: conecta SPP y envía el comando capture para empezar a leer la palma.
-     * @return true si la conexión y el comando fueron exitosos.
-     */
     suspend fun startSession(): Boolean {
-        // 0) Wake BLE: despierta el subsistema de captura del sensor. Best-effort: si falla,
-        //    se continúa con SPP igualmente (los logs del GATT ayudan a diagnosticar).
+        // Wake BLE: despierta el subsistema de captura del sensor. Best-effort: si falla,
+        // se continúa con SPP igualmente (sin el wake la cámara nunca arranca).
         Log.d(TAG, "startSession: wake BLE...")
         val woke = try {
             client.connectBleAndWake().await()
@@ -37,14 +27,14 @@ class VeltSensorRepository(
             false
         }
         Log.d(TAG, "startSession: wake BLE = $woke")
-        if (woke) delay(800) // dar tiempo a que arranque el sensor de imagen
+        if (woke) delay(800)
 
         Log.d(TAG, "startSession: conectando SPP...")
         if (!client.connectClassicAndStartReader().await()) {
             Log.e(TAG, "startSession: fallo al conectar SPP")
             return false
         }
-        delay(500) // estabilizar la conexión
+        delay(500)
         Log.d(TAG, "startSession: enviando comando capture...")
         return client.sendCapture()
     }
@@ -53,7 +43,6 @@ class VeltSensorRepository(
         client.sendIdle()
     }
 
-    /** Pone el LED del sensor en blanco parpadeante (indicador "listo para escanear"). */
     suspend fun setLedWhiteBlink() {
         client.setColor(0xFFFFFF, blinkEnabled = true, blinkOnMs = 200, blinkOffMs = 200)
     }

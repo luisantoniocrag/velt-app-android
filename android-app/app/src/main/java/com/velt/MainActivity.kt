@@ -49,7 +49,6 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
     var selectedAddress by remember { mutableStateOf<String?>(null) }
     var selectedName by remember { mutableStateOf<String?>(null) }
 
-    // Permisos Bluetooth necesarios tanto para gestionar dispositivos como para el flujo de validación de palma.
     val btPermissions = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             arrayOf(
@@ -61,7 +60,6 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
         }
     }
 
-    // Destino pendiente tras conceder permisos.
     var pendingScreen by remember { mutableStateOf<Screen?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()

@@ -9,7 +9,6 @@ const createMerchantSchema = z.object({
 });
 
 export async function merchantRoutes(app: FastifyInstance): Promise<void> {
-  // 6.1 POST /api/v1/merchants — registra un comerciante.
   app.post("/merchants", async (request, reply) => {
     const parsed = createMerchantSchema.safeParse(request.body);
     if (!parsed.success) {
