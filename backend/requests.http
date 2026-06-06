@@ -8,14 +8,55 @@
 ### 0. Health
 GET {{host}}/health
 
-### 1. Crear comerciante  → guarda el "id" en @merchantId
+### ── Autenticación de comerciante (palma → JWT) ──
+
+### A1. Registro (self-signup): crea comerciante + liga la palma + devuelve tokens.
+###      Reemplaza BASE64_TEMPLATE por un template real capturado por el sensor.
+# @name register
+POST {{api}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Cafe Brooklyn",
+  "provider": "palm",
+  "credentials": { "template": "BASE64_TEMPLATE" }
+}
+
+### Copiar de la respuesta: merchant.id, accessToken, refreshToken
+@merchantId = PEGA_AQUI_EL_MERCHANT_ID
+@accessToken = PEGA_AQUI_EL_ACCESS_TOKEN
+@refreshToken = PEGA_AQUI_EL_REFRESH_TOKEN
+
+### A2. Login posterior (misma palma) → nuevos tokens
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "provider": "palm",
+  "credentials": { "template": "BASE64_TEMPLATE" }
+}
+
+### A3. Refresh (rota el refresh token)
+POST {{api}}/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### A4. Logout (revoca el refresh token) → 204
+POST {{api}}/auth/logout
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### 1. (alternativa programática, sin login) Crear comerciante  → guarda el "id" en @merchantId
+# El backend deriva su smart account (ERC-4337). smartAccountAddress es opcional:
+# si se envía se respeta, si no se deriva. La respuesta trae "smartAccountAddress".
 # @name createMerchant
 POST {{api}}/merchants
 Content-Type: application/json
 
 {
-  "name": "Cafe Brooklyn",
-  "smartAccountAddress": "0x1111111111111111111111111111111111111111"
+  "name": "Cafe Brooklyn"
 }
 
 ### (copiar el id de la respuesta anterior)
@@ -48,6 +89,29 @@ Content-Type: application/json
 
 ### 6. Consultar estado final (fallback del WS)
 GET {{api}}/payments/{{paymentId}}
+
+### ── Retiro de fondos del comerciante (asíncrono, igual que un pago) ──
+
+### 7. Iniciar retiro (requiere Bearer del propio comerciante) → guarda "withdrawalId" + "wsUrl"
+# @name withdraw
+POST {{api}}/merchants/{{merchantId}}/withdraw
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "to": "0x2222222222222222222222222222222222222222",
+  "amount": 2.50
+}
+
+### (copiar el withdrawalId de la respuesta anterior)
+@withdrawalId = PEGA_AQUI_EL_WITHDRAWAL_ID
+
+### 8. (en otra terminal) abrir el WebSocket para ver processing → settled/failed:
+###   wscat -c ws://localhost:3000/ws/withdrawals/<withdrawalId>
+
+### 9. Consultar estado final del retiro (fallback del WS, requiere Bearer)
+GET {{api}}/withdrawals/{{withdrawalId}}
+Authorization: Bearer {{accessToken}}
 
 ### ── Casos de validación (deben fallar con 4xx) ──
 

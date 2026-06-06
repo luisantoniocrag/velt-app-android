@@ -20,6 +20,16 @@ const baseSchema = z.object({
   PRIVY_APP_ID: z.string().optional(),
   PRIVY_APP_SECRET: z.string().optional(),
   TURNKEY_API_KEY: z.string().optional(),
+
+  // Auth: JWT de acceso (firma HS256) + ventanas de vida.
+  JWT_SECRET: z.string().min(32, "JWT_SECRET debe tener al menos 32 caracteres"),
+  ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900), // 15 min
+  REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(2_592_000), // 30 días
+
+  // Bioserver (proveedor de auth por palma). Mismas credenciales que VeltSensorConfig (Android).
+  BIOSERVER_URL: z.string().url().default("https://openpalm.io/admin-app/"),
+  BIOSERVER_CLIENT_ID: z.string().min(1),
+  BIOSERVER_SHARED_SECRET: z.string().min(1),
 });
 
 const schema = baseSchema.superRefine((cfg, ctx) => {

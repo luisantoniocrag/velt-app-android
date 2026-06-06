@@ -17,11 +17,13 @@ export const db: SupabaseClient = createClient(
 
 // Tipos de fila (espejo de schema.sql).
 export type PaymentStatus = "pending" | "authorizing" | "settled" | "failed";
+export type WithdrawalStatus = "pending" | "processing" | "settled" | "failed";
 
 export interface MerchantRow {
   id: string;
   name: string;
   smart_account_address: string;
+  custodial: boolean; // true → cuenta derivada por el backend (puede retirar)
   created_at: string;
 }
 
@@ -42,4 +44,33 @@ export interface PaymentRequestRow {
   tx_hash: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface WithdrawalRow {
+  id: string;
+  merchant_id: string;
+  to_address: string;
+  amount: string | number; // numeric → suele llegar como string desde PostgREST
+  status: WithdrawalStatus;
+  tx_hash: string | null;
+  reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MerchantIdentityRow {
+  id: string;
+  merchant_id: string;
+  provider: string; // 'palm', 'google', ...
+  external_id: string; // personId (palma), sub (google), ...
+  created_at: string;
+}
+
+export interface RefreshTokenRow {
+  id: string;
+  merchant_id: string;
+  token_hash: string; // sha256 del token crudo
+  expires_at: string;
+  revoked_at: string | null;
+  created_at: string;
 }

@@ -16,9 +16,10 @@ Monorepo del proyecto Velt: validación biométrica de **palma** con el sensor *
   y lo verifica contra el bioserver. Abre Android Studio apuntando a esta carpeta (ahí vive el
   `settings.gradle.kts`).
 - **`backend/`** — "cerebro" de pagos: recibe un `personId` (palma identificada), lo mapea a una
-  smart account ERC-4337 y ejecuta una transferencia USDC en Arc. Stack: Node 20 + TypeScript +
-  Fastify + Supabase + viem/permissionless. Ver [`backend/README.md`](backend/README.md). El build
-  se valida con `cd backend && npm run typecheck`.
+  smart account ERC-4337 y ejecuta una transferencia USDC en Arc; también deriva la cuenta del
+  comerciante y le permite **retirar** sus fondos. Stack: Node 20 + TypeScript + Fastify + Supabase +
+  viem/permissionless. Ver [`backend/README.md`](backend/README.md). El build se valida con
+  `cd backend && npm run typecheck`.
 
 > Estado actual de la app: la **app principal está en construcción**. Lo implementado hoy son las
 > herramientas del sensor, accesibles desde un **menú de Configuración**.
@@ -147,7 +148,8 @@ npm start           # node dist/index.js (producción)
 ```
 
 - No hay framework de tests todavía. La verificación E2E es manual: [`backend/requests.http`](backend/requests.http)
-  para el HTTP y `wscat -c ws://localhost:3000/ws/payments/<paymentId>` para el WS.
+  para el HTTP y `wscat -c ws://localhost:3000/ws/payments/<paymentId>` (o `.../ws/withdrawals/<id>`)
+  para el WS.
 - Config validada con zod al arranque (`src/config.ts`): si falta una env var, el proceso **falla
   ruidosamente**. Copiar `.env.example` → `.env`. Las tablas se crean pegando `src/db/schema.sql`
   en el editor SQL de Supabase.
@@ -167,6 +169,46 @@ El estado vive en `payment_requests.status`: `pending → authorizing → settle
 4. `GET /api/v1/payments/:id` es el **fallback** si el WS no estaba conectado — el estado siempre
    persiste en la DB aunque el evento se pierda.
 
+### Retiro de fondos del comerciante (`withdrawals`)
+
+Mismo patrón que un pago, pero al revés (saca USDC de la cuenta del comerciante). El estado vive en
+`withdrawals.status`: `pending → processing → settled | failed`.
+
+1. `POST /api/v1/merchants/:id/withdraw` (`to`, `amount`) → crea fila `pending`, responde **`202`**
+   con `withdrawalId` + `wsUrl` y liquida en segundo plano (`void processWithdrawal(...)`).
+2. `processWithdrawal` (en `routes/merchants.ts`) nunca lanza: rehidrata la cuenta del comerciante
+   (`getOrCreateAccount(subjectForMerchant(id))`), firma un `transfer` USDC a `to` y marca `settled`
+   (con `tx_hash`) o `failed` (con `reason`). Cada transición emite un evento WS (`/ws/withdrawals/:id`).
+3. `GET /api/v1/withdrawals/:id` es el **fallback** del WS.
+
+La smart account del comerciante se **deriva igual que la del pagador** (es contrafactual): se crea
+al registrar el comerciante (`POST /merchants` sin `smartAccountAddress`) y queda marcada `custodial=true`.
+Si en cambio se trae una dirección **externa**, se respeta pero queda `custodial=false`: el backend **no
+tiene su llave**, así que `withdraw` la rechaza con `409 account_not_custodial`. Solo las cuentas
+derivadas (custodiadas por el backend) pueden retirar.
+
+### Autenticación de comerciante (`src/auth/`) — palma → JWT, provider-agnóstica
+
+Solo comerciantes (los pagos siguen sin login del pagador). Mismo patrón que `Signer`: interfaz
+`AuthProvider` (`auth/provider.ts`) elegida por nombre. `palm` implementado (`auth/palmProvider.ts`
+→ `auth/bioserver.ts`, HMAC-SHA256 portado de `VeltSensorBioService`); `google`/`email` son stubs.
+`AuthProvider.authenticate(credentials, ctx) → { provider, externalId }`; para palma
+`externalId = personId`.
+
+La tabla **`merchant_identities` `(provider, external_id)` → `merchant_id`** liga cualquier
+identidad de cualquier proveedor a un comerciante (patrón "accounts"): añadir Google = nuevo provider
++ filas, sin tocar login/register.
+
+**Tokens** (`auth/tokens.ts`): access JWT HS256 corto (15m, **firmado a mano con `node:crypto`**,
+`alg` fijo, compare en tiempo constante) + refresh opaco (30d) guardado **hasheado** (`sha256`) en
+`refresh_tokens`, **rotativo y revocable**; reuso de un refresh revocado → revoca toda la familia.
+
+Endpoints `/api/v1/auth/*` (`routes/auth.ts`): `register` (self-signup: verifica palma → crea+liga
+comerciante vía `createMerchant` de `routes/merchants.ts` → emite sesión), `login`, `refresh`, `logout`.
+`requireMerchantAuth` (`auth/middleware.ts`) es el preHandler que exige `Authorization: Bearer` y deja
+`request.merchantId`. Protegen `withdraw` (+ ownership: `:id` == merchant del token, si no `403`) y
+`GET /withdrawals/:id`.
+
 ### Capa de firma — interfaz `Signer` (`src/chain/signer.ts`)
 
 Todo el on-chain está detrás de `Signer` y se elige por `SIGNER_BACKEND`; el resto del backend no
@@ -174,8 +216,9 @@ cambia al migrar entre enfoques:
 
 - **`local`** (`localSigner.ts`) — **único implementado** (Enfoque A, hackathon). El backend custodia
   `LOCAL_SIGNER_MASTER_KEY`; el owner de cada smart account se deriva determinista:
-  `ownerPrivKey = keccak256("<masterKey>:<personId>")`. La dirección es **contrafactual** (válida
-  sin desplegar); el primer UserOp incluye el initCode que despliega la cuenta.
+  `ownerPrivKey = keccak256("<masterKey>:<subjectId>")` (el `subjectId` es el `personId` crudo de un
+  pagador o `merchant:<id>` de un comerciante). La dirección es **contrafactual** (válida sin desplegar);
+  el primer UserOp incluye el initCode que despliega la cuenta.
 - **`privy` / `turnkey`** — stubs (`throw "not implemented"`), el camino de producción (firma externa,
   el backend nunca toca la llave). Notas de implementación dentro de cada archivo.
 
@@ -183,20 +226,31 @@ cambia al migrar entre enfoques:
 
 - **`202` + liquidación en background**: `authorize` responde antes de que el pago termine. El
   resultado real (`settled`/`failed` + `txHash`) llega **solo por WebSocket** o por `GET /payments/:id`.
-- **Registro de sockets en memoria** (`lib/events.ts`): un solo socket por `paymentId`, sin broadcast,
-  sin persistencia. Se cierra tras un evento terminal. Sirve para una instancia; escalar a varias
-  requiere un bus externo.
-- **Mapa `address→personId` en proceso** (`LocalSigner`): `signAndSendUserOp` re-deriva el owner desde
-  ese mapa, que solo se llena al llamar `getOrCreateAccount`. Funciona porque `settlePayment` **siempre**
-  llama `getOrCreateAccount` antes de firmar (mapa caliente). Un firmar "en frío" por dirección fallaría.
+- **Registro de sockets en memoria** (`lib/events.ts`): un solo socket por canal (`payment:<id>` o
+  `withdrawal:<id>`), sin broadcast, sin persistencia. Se cierra tras un evento terminal. Sirve para una
+  instancia; escalar a varias requiere un bus externo.
+- **Mapa `address→subject` en proceso** (`LocalSigner`): `signAndSendUserOp` re-deriva el owner desde
+  ese mapa, que solo se llena al llamar `getOrCreateAccount`. Funciona porque `settlePayment` y
+  `processWithdrawal` **siempre** llaman `getOrCreateAccount` antes de firmar (mapa caliente). Un firmar
+  "en frío" por dirección fallaría.
 - **`amount` numeric**: PostgREST suele devolver `numeric(18,6)` como **string**; se convierte con
   `parseUnits(String(amount), 6)` (`USDC_DECIMALS`). No asumir `number`.
+- **Cambios de esquema → re-aplicar `schema.sql` en Supabase**: `schema.sql` es idempotente
+  (`create table if not exists`, `alter table ... add column if not exists`). Tras añadir una columna
+  o tabla hay que **volver a pegarlo** en el SQL editor; si no, PostgREST responde `PGRST204` ("could
+  not find the column ... in the schema cache"). El script termina con `notify pgrst, 'reload schema'`
+  para refrescar el cache sin esperar.
 - **Cuenta sin fondos → `failed` (saldo insuficiente)** es el comportamiento correcto de v1; el funding
   (Blink) llega en v2.
 - **Supabase con service key** (`db/client.ts`): salta RLS. Se le inyecta el `WebSocket` de `ws` porque
   supabase-js construye su RealtimeClient siempre y Node <22 no trae WS nativo (aunque no usamos realtime).
 - **Alcance v1 = solo core**: NO incluye ENS, Blink, Unlink, session keys, multi-chain, QR, apps
-  iOS/Watch, login de comerciante ni rate limiting. Marcado como `// TODO v2` donde aplica.
+  iOS/Watch ni rate limiting. El **login de comerciante** (palma → JWT) ya está; falta login del
+  pagador y proveedores extra (Google/email son stubs). Marcado como `// TODO v2` donde aplica.
+- **`npm run dev` revienta con `TransformError: The service was stopped` / "installed esbuild for
+  another platform"**: `tsx` usa el binario nativo de esbuild y a veces `node_modules/@esbuild/<plat>/bin/`
+  queda vacío (al copiar `node_modules` o cambiar de versión de Node). Arreglo:
+  `rm -rf node_modules/esbuild node_modules/@esbuild && npm install` (o `rm -rf node_modules && npm install`).
 
 ---
 

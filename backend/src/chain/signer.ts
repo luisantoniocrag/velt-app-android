@@ -2,13 +2,18 @@ import { config } from "../config.js";
 
 // Capa de firma desacoplada; la implementación se elige por SIGNER_BACKEND. Ver README.md.
 export interface Signer {
-  getOrCreateAccount(personId: string): Promise<{ address: string }>;
+  getOrCreateAccount(subjectId: string): Promise<{ address: string }>;
   signAndSendUserOp(params: {
     from: string;
     to: string;
     amountUsdc: bigint;
   }): Promise<{ txHash: string }>;
 }
+
+// El subject es la entrada de la derivación determinista del owner. Los pagadores usan su
+// personId crudo (histórico, no romper direcciones ya derivadas); los comerciantes se
+// namespacing para que un personId nunca pueda colisionar con un merchantId.
+export const subjectForMerchant = (merchantId: string): string => `merchant:${merchantId}`;
 
 let cached: Signer | null = null;
 

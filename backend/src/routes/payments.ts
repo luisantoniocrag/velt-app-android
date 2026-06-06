@@ -11,6 +11,7 @@ import { badRequest, conflict, internal, notFound } from "../lib/errors.js";
 import { emitPaymentEvent } from "../lib/events.js";
 import { getSigner } from "../chain/signer.js";
 import { USDC_DECIMALS } from "../chain/usdc.js";
+import { classifyFailure } from "../chain/failures.js";
 
 const uuid = z.string().uuid();
 
@@ -200,14 +201,4 @@ async function ensureVeltUser(
     throw new Error("no se pudo crear la cuenta del usuario");
   }
   return data;
-}
-
-function classifyFailure(err: unknown): string {
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  if (msg.includes("insufficient") || msg.includes("balance") || msg.includes("funds")) {
-    return "insufficient_funds";
-  }
-  if (msg.includes("timeout") || msg.includes("timed out")) return "rpc_timeout";
-  if (msg.includes("revert")) return "tx_reverted";
-  return "payment_failed";
 }

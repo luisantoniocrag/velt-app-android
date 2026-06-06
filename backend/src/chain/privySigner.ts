@@ -2,7 +2,7 @@ import type { Signer } from "./signer.js";
 
 // STUB (Enfoque B, producción): firma remota vía Privy. Ver README.md.
 export class PrivySigner implements Signer {
-  async getOrCreateAccount(_personId: string): Promise<{ address: string }> {
+  async getOrCreateAccount(_subjectId: string): Promise<{ address: string }> {
     throw new Error("PrivySigner not implemented — usa SIGNER_BACKEND=local (ver README)");
   }
 

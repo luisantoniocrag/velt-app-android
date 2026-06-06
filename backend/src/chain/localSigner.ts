@@ -6,7 +6,7 @@ import { config } from "../config.js";
 import type { Signer } from "./signer.js";
 import { arcChain, publicClient, USDC_ADDRESS, encodeUsdcTransfer } from "./usdc.js";
 
-// Owner determinista por usuario: ownerPrivKey = keccak256("<masterKey>:<personId>").
+// Owner determinista por subject: ownerPrivKey = keccak256("<masterKey>:<subjectId>").
 // Riesgo: si se filtra LOCAL_SIGNER_MASTER_KEY, se comprometen todas las cuentas.
 export class LocalSigner implements Signer {
   private readonly entryPoint = {
@@ -14,29 +14,29 @@ export class LocalSigner implements Signer {
     version: "0.7" as const,
   };
 
-  private ownerFor(personId: string) {
+  private ownerFor(subjectId: string) {
     const masterKey = config.LOCAL_SIGNER_MASTER_KEY!; // validado en config.ts cuando SIGNER_BACKEND=local
-    const privKey = keccak256(toHex(`${masterKey}:${personId}`));
+    const privKey = keccak256(toHex(`${masterKey}:${subjectId}`));
     return privateKeyToAccount(privKey);
   }
 
-  private async accountFor(personId: string) {
+  private async accountFor(subjectId: string) {
     return toSimpleSmartAccount({
       client: publicClient,
-      owner: this.ownerFor(personId),
+      owner: this.ownerFor(subjectId),
       entryPoint: this.entryPoint,
     });
   }
 
-  // signAndSendUserOp re-deriva el owner conociendo solo `from`. El caller
-  // (payments.authorize) SIEMPRE llama getOrCreateAccount antes de firmar, así
-  // que el mapa está caliente; firmar "en frío" por dirección fallaría.
-  private readonly addressToPerson = new Map<string, string>();
+  // signAndSendUserOp re-deriva el owner conociendo solo `from`. El caller (settlePayment
+  // o processWithdrawal) SIEMPRE llama getOrCreateAccount antes de firmar, así que el mapa
+  // está caliente; firmar "en frío" por dirección fallaría.
+  private readonly addressToSubject = new Map<string, string>();
 
-  async getOrCreateAccount(personId: string): Promise<{ address: string }> {
-    const account = await this.accountFor(personId);
+  async getOrCreateAccount(subjectId: string): Promise<{ address: string }> {
+    const account = await this.accountFor(subjectId);
     // Dirección contrafactual: el primer UserOp incluye el initCode que la despliega.
-    this.addressToPerson.set(account.address.toLowerCase(), personId);
+    this.addressToSubject.set(account.address.toLowerCase(), subjectId);
     return { address: account.address };
   }
 
@@ -63,10 +63,10 @@ export class LocalSigner implements Signer {
   }
 
   private async accountForAddress(address: string) {
-    const personId = this.addressToPerson.get(address.toLowerCase());
-    if (!personId) {
-      throw new Error(`no hay personId registrado para la cuenta ${address}`);
+    const subjectId = this.addressToSubject.get(address.toLowerCase());
+    if (!subjectId) {
+      throw new Error(`no hay subject registrado para la cuenta ${address}`);
     }
-    return this.accountFor(personId);
+    return this.accountFor(subjectId);
   }
 }

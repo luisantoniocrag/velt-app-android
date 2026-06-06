@@ -2,7 +2,7 @@ import type { Signer } from "./signer.js";
 
 // STUB (Enfoque B, producción): firma remota vía Turnkey. Ver README.md.
 export class TurnkeySigner implements Signer {
-  async getOrCreateAccount(_personId: string): Promise<{ address: string }> {
+  async getOrCreateAccount(_subjectId: string): Promise<{ address: string }> {
     throw new Error("TurnkeySigner not implemented — usa SIGNER_BACKEND=local (ver README)");
   }
 
