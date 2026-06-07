@@ -1,0 +1,128 @@
+package com.velt.ui.onboarding
+
+import android.content.Context
+import android.content.res.Configuration
+import com.velt.R
+import java.util.Locale
+
+enum class Lang { ES, EN }
+
+data class OnboardingStrings(
+    val splashTitle: String,
+    val splashSub: String,
+    val splashCta: String,
+    val phoneTitle: String,
+    val phoneH: String,
+    val phoneSub: String,
+    val phoneKpadLbl: String,
+    val phoneNext: String,
+    val phoneTerms: String,
+    val phoneTermsLink: String,
+    val otpTitle: String,
+    val otpH: String,
+    val otpSubPrefix: String,
+    val otpResend: String,
+    val otpResendLink: String,
+    val otpVerify: String,
+    val profileTitle: String,
+    val profileH: String,
+    val profileSub: String,
+    val profilePhoto: String,
+    val profileNext: String,
+    val profName: String,
+    val profLast: String,
+    val profAddr: String,
+    val profAvailSuffix: String,
+    val kycTitle: String,
+    val kycH: String,
+    val kycSub: String,
+    val kycChoose: String,
+    val kycOpt1: String,
+    val kycOpt2: String,
+    val kycPhoto: String,
+    val kycHint: String,
+    val kycCamera: String,
+    val kycPrivacy: String,
+    val kycSkip: String,
+    val palmTitle: String,
+    val palmH: String,
+    val palmSub: String,
+    val palmReadings: String,
+    val palmHint: String,
+    val palmScanBtn: String,
+    val palmDone: String,
+    val palmDoneMsg: String,
+    val palmDoneSub: String,
+    val welcomeTitle: String,
+    val welcomeSub: String,
+    val wp1: String,
+    val wp1sub: String,
+    val wp2: String,
+    val wp3: String,
+    val wp3sub: String,
+    val welcomeCta: String
+)
+
+fun stringsFor(lang: Lang, context: Context): OnboardingStrings {
+    val locale = Locale.forLanguageTag(if (lang == Lang.ES) "es" else "en")
+    val config = Configuration(context.resources.configuration).apply { setLocale(locale) }
+    val res = context.createConfigurationContext(config).resources
+
+    fun s(id: Int) = res.getString(id)
+
+    return OnboardingStrings(
+        splashTitle = s(R.string.ob_splash_title),
+        splashSub = s(R.string.ob_splash_sub),
+        splashCta = s(R.string.ob_splash_cta),
+        phoneTitle = s(R.string.ob_phone_title),
+        phoneH = s(R.string.ob_phone_h),
+        phoneSub = s(R.string.ob_phone_sub),
+        phoneKpadLbl = s(R.string.ob_phone_kpad_lbl),
+        phoneNext = s(R.string.ob_phone_next),
+        phoneTerms = s(R.string.ob_phone_terms),
+        phoneTermsLink = s(R.string.ob_phone_terms_link),
+        otpTitle = s(R.string.ob_otp_title),
+        otpH = s(R.string.ob_otp_h),
+        otpSubPrefix = s(R.string.ob_otp_sub_prefix),
+        otpResend = s(R.string.ob_otp_resend),
+        otpResendLink = s(R.string.ob_otp_resend_link),
+        otpVerify = s(R.string.ob_otp_verify),
+        profileTitle = s(R.string.ob_profile_title),
+        profileH = s(R.string.ob_profile_h),
+        profileSub = s(R.string.ob_profile_sub),
+        profilePhoto = s(R.string.ob_profile_photo),
+        profileNext = s(R.string.ob_profile_next),
+        profName = s(R.string.ob_prof_name),
+        profLast = s(R.string.ob_prof_last),
+        profAddr = s(R.string.ob_prof_addr),
+        profAvailSuffix = s(R.string.ob_prof_avail_suffix),
+        kycTitle = s(R.string.ob_kyc_title),
+        kycH = s(R.string.ob_kyc_h),
+        kycSub = s(R.string.ob_kyc_sub),
+        kycChoose = s(R.string.ob_kyc_choose),
+        kycOpt1 = s(R.string.ob_kyc_opt1),
+        kycOpt2 = s(R.string.ob_kyc_opt2),
+        kycPhoto = s(R.string.ob_kyc_photo),
+        kycHint = s(R.string.ob_kyc_hint),
+        kycCamera = s(R.string.ob_kyc_camera),
+        kycPrivacy = s(R.string.ob_kyc_privacy),
+        kycSkip = s(R.string.ob_kyc_skip),
+        palmTitle = s(R.string.ob_palm_title),
+        palmH = s(R.string.ob_palm_h),
+        palmSub = s(R.string.ob_palm_sub),
+        palmReadings = s(R.string.ob_palm_readings),
+        palmHint = s(R.string.ob_palm_hint),
+        palmScanBtn = s(R.string.ob_palm_scan_btn),
+        palmDone = s(R.string.ob_palm_done),
+        palmDoneMsg = s(R.string.ob_palm_done_msg),
+        palmDoneSub = s(R.string.ob_palm_done_sub),
+        welcomeTitle = s(R.string.ob_welcome_title),
+        welcomeSub = s(R.string.ob_welcome_sub),
+        wp1 = s(R.string.ob_wp1),
+        wp1sub = s(R.string.ob_wp1_sub),
+        wp2 = s(R.string.ob_wp2),
+        wp3 = s(R.string.ob_wp3),
+        wp3sub = s(R.string.ob_wp3_sub),
+        welcomeCta = s(R.string.ob_welcome_cta)
+    )
+}

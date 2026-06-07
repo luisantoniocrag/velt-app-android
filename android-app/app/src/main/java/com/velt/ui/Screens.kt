@@ -13,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -33,11 +32,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.velt.R
 import com.velt.sensor.VeltSensorBioService
 import com.velt.sensor.VeltSensorConfig
 import com.velt.sensor.VeltSensorRepository
@@ -117,7 +118,11 @@ fun ConfigMenuScreen(
                 .fillMaxWidth()
                 .height(64.dp)
         ) {
-            Icon(Icons.Filled.Fingerprint, contentDescription = null)
+            Icon(
+                painterResource(R.drawable.ic_palm_icon),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
             Spacer(Modifier.size(12.dp))
             Text("Validar palma", fontSize = 18.sp)
         }

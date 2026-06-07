@@ -1,0 +1,62 @@
+<resources>
+    <!-- Onboarding · español -->
+    <string name="ob_splash_title">El futuro de los pagos está en tus manos</string>
+    <string name="ob_splash_sub">Paga con tu palma en 2 segundos.\nSin tarjeta. Sin teléfono. Solo tú.</string>
+    <string name="ob_splash_cta">Continuar</string>
+
+    <string name="ob_phone_title">Crear cuenta</string>
+    <string name="ob_phone_h">Tu número de teléfono</string>
+    <string name="ob_phone_sub">Te enviaremos un código de verificación por WhatsApp o SMS.</string>
+    <string name="ob_phone_kpad_lbl">Usa el teclado o escribe arriba</string>
+    <string name="ob_phone_next">Enviar código →</string>
+    <string name="ob_phone_terms">Al continuar aceptas los </string>
+    <string name="ob_phone_terms_link">Términos de uso</string>
+
+    <string name="ob_otp_title">Verificar número</string>
+    <string name="ob_otp_h">Código de 6 dígitos</string>
+    <string name="ob_otp_sub_prefix">Lo enviamos por WhatsApp a</string>
+    <string name="ob_otp_resend">¿No llegó? </string>
+    <string name="ob_otp_resend_link">Reenviar</string>
+    <string name="ob_otp_verify">Verificar →</string>
+
+    <string name="ob_profile_title">Tu perfil</string>
+    <string name="ob_profile_h">¿Cómo te llamas?</string>
+    <string name="ob_profile_sub">Esta info aparece en tus pagos.</string>
+    <string name="ob_profile_photo">Añadir foto</string>
+    <string name="ob_profile_next">Continuar →</string>
+    <string name="ob_prof_name">Nombre</string>
+    <string name="ob_prof_last">Apellido</string>
+    <string name="ob_prof_addr">Tu dirección Velt</string>
+    <string name="ob_prof_avail_suffix">disponible</string>
+
+    <string name="ob_kyc_title">Verificar identidad</string>
+    <string name="ob_kyc_h">Verifica tu identidad</string>
+    <string name="ob_kyc_sub">Requerido por regulación. Solo tarda 2 minutos.</string>
+    <string name="ob_kyc_choose">Elige tu documento</string>
+    <string name="ob_kyc_opt1">INE / IFE</string>
+    <string name="ob_kyc_opt2">Pasaporte</string>
+    <string name="ob_kyc_photo">Tomar foto del frente</string>
+    <string name="ob_kyc_hint">Asegúrate de que se vea claro</string>
+    <string name="ob_kyc_camera">Abrir cámara</string>
+    <string name="ob_kyc_privacy">Tus documentos se eliminan automáticamente después de la verificación.</string>
+    <string name="ob_kyc_skip">Continuar →</string>
+
+    <string name="ob_palm_title">Registra tu palma</string>
+    <string name="ob_palm_h">¡Último paso!</string>
+    <string name="ob_palm_sub">Registraremos tu palma para pagos biométricos.</string>
+    <string name="ob_palm_readings">Lecturas</string>
+    <string name="ob_palm_hint">Coloca tu palma en el lector y toca para simular</string>
+    <string name="ob_palm_scan_btn">Simular lectura</string>
+    <string name="ob_palm_done">Continuar →</string>
+    <string name="ob_palm_done_msg">¡Palma registrada!</string>
+    <string name="ob_palm_done_sub">Tu palma está lista.</string>
+
+    <string name="ob_welcome_title">¡Bienvenido a Velt, Carlos!</string>
+    <string name="ob_welcome_sub">Tu cuenta está lista. Ya puedes pagar con tu palma en cualquier comercio Velt.</string>
+    <string name="ob_wp1">Palma registrada</string>
+    <string name="ob_wp1_sub">Lista para pagar</string>
+    <string name="ob_wp2">Velt ID creado</string>
+    <string name="ob_wp3">Wallet activado</string>
+    <string name="ob_wp3_sub">0.00 USDC · Recarga para empezar</string>
+    <string name="ob_welcome_cta">Ir a mi wallet →</string>
+</resources>

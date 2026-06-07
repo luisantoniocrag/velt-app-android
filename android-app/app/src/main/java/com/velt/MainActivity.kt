@@ -24,9 +24,10 @@ import com.velt.ui.BluetoothScreen
 import com.velt.ui.ConfigMenuScreen
 import com.velt.ui.HomeScreen
 import com.velt.ui.PalmValidationScreen
+import com.velt.ui.onboarding.OnboardingFlow
 import com.velt.ui.theme.AppTheme
 
-private enum class Screen { HOME, CONFIG, BLUETOOTH, PALM }
+private enum class Screen { ONBOARDING, HOME, CONFIG, BLUETOOTH, PALM }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,7 +46,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppNavigation(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var screen by remember { mutableStateOf(Screen.HOME) }
+    var screen by remember { mutableStateOf(Screen.ONBOARDING) }
     var selectedAddress by remember { mutableStateOf<String?>(null) }
     var selectedName by remember { mutableStateOf<String?>(null) }
 
@@ -84,6 +85,9 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
 
     Box(modifier = modifier) {
         when (screen) {
+            Screen.ONBOARDING -> OnboardingFlow(
+                onFinish = { screen = Screen.HOME }
+            )
             Screen.HOME -> HomeScreen(
                 onConfigClick = { screen = Screen.CONFIG }
             )
