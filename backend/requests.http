@@ -8,52 +8,81 @@
 ### 0. Health
 GET {{host}}/health
 
-### ── Autenticación de comerciante (palma → JWT) ──
+### ── Autenticación de USUARIO (persona dueña de N comercios) ──
+### El usuario se registra por teléfono o palma; luego crea/administra comercios.
 
-### A1. Registro (self-signup): crea comerciante + liga la palma + devuelve tokens.
-###      Reemplaza BASE64_TEMPLATE por un template real capturado por el sensor.
+### A0. (teléfono) Enviar el código. channel: "sms" (default) | "whatsapp" (solo Twilio).
+POST {{api}}/auth/phone/otp
+Content-Type: application/json
+
+{ "phone": "+5215512345678" }
+
+### A1. Registro (self-signup): crea el USUARIO + liga la identidad + devuelve tokens.
+###      Teléfono: usa el código del SMS. Palma: reemplaza BASE64_TEMPLATE por un template real.
 # @name register
 POST {{api}}/auth/register
 Content-Type: application/json
 
 {
-  "name": "Cafe Brooklyn",
-  "provider": "palm",
-  "credentials": { "template": "BASE64_TEMPLATE" }
+  "provider": "phone",
+  "credentials": { "phone": "+5215512345678", "code": "123456" }
 }
 
-### Copiar de la respuesta: merchant.id, accessToken, refreshToken
-@merchantId = PEGA_AQUI_EL_MERCHANT_ID
+### Copiar de la respuesta: user.id, accessToken, refreshToken
 @accessToken = PEGA_AQUI_EL_ACCESS_TOKEN
 @refreshToken = PEGA_AQUI_EL_REFRESH_TOKEN
 
-### A2. Login posterior (misma palma) → nuevos tokens
+### A2. Login posterior (misma identidad) → nuevos tokens
 POST {{api}}/auth/login
 Content-Type: application/json
+
+{
+  "provider": "phone",
+  "credentials": { "phone": "+5215512345678", "code": "123456" }
+}
+
+### A3. Perfil: ¿soy nuevo?, mis identidades y mis comercios
+GET {{api}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+### A4. Añadir mi palma a la cuenta ya logueada → 201
+POST {{api}}/auth/link
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
 
 {
   "provider": "palm",
   "credentials": { "template": "BASE64_TEMPLATE" }
 }
 
-### A3. Refresh (rota el refresh token)
+### A5. Quitar mi palma (no se puede quitar la única identidad → 409)
+DELETE {{api}}/auth/identities/palm
+Authorization: Bearer {{accessToken}}
+
+### A6. Refresh (rota el refresh token)
 POST {{api}}/auth/refresh
 Content-Type: application/json
 
 { "refreshToken": "{{refreshToken}}" }
 
-### A4. Logout (revoca el refresh token) → 204
+### A7. Logout (revoca el refresh token) → 204
 POST {{api}}/auth/logout
 Content-Type: application/json
 
 { "refreshToken": "{{refreshToken}}" }
 
-### 1. (alternativa programática, sin login) Crear comerciante  → guarda el "id" en @merchantId
-# El backend deriva su smart account (ERC-4337). smartAccountAddress es opcional:
-# si se envía se respeta, si no se deriva. La respuesta trae "smartAccountAddress".
+### A8. Eliminar mi cuenta (bloquea con 409 si algún comercio custodial tiene saldo) → 204
+DELETE {{api}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+### ── Comercios (CRUD, requieren Bearer del dueño) ──
+
+### M1. Crear comercio → guarda el "id" en @merchantId
+# El backend deriva su smart account (ERC-4337). smartAccountAddress es opcional.
 # @name createMerchant
 POST {{api}}/merchants
 Content-Type: application/json
+Authorization: Bearer {{accessToken}}
 
 {
   "name": "Cafe Brooklyn"
@@ -61,6 +90,25 @@ Content-Type: application/json
 
 ### (copiar el id de la respuesta anterior)
 @merchantId = PEGA_AQUI_EL_MERCHANT_ID
+
+### M2. Listar mis comercios
+GET {{api}}/merchants
+Authorization: Bearer {{accessToken}}
+
+### M3. Ver un comercio (incluye usdcBalance on-chain)
+GET {{api}}/merchants/{{merchantId}}
+Authorization: Bearer {{accessToken}}
+
+### M4. Editar (renombrar)
+PATCH {{api}}/merchants/{{merchantId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{ "name": "Cafe Brooklyn Centro" }
+
+### M5. Eliminar (soft-delete; 409 must_withdraw_first si custodial con saldo)
+DELETE {{api}}/merchants/{{merchantId}}
+Authorization: Bearer {{accessToken}}
 
 ### 2. Iniciar cobro  → guarda "paymentId" y abre el WS con "wsUrl"
 # @name initiate

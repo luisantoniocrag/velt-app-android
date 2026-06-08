@@ -1,6 +1,6 @@
 // Capa de autenticación desacoplada del resto del backend, igual que la interfaz `Signer`.
 // Un proveedor traduce unas credenciales (palma, Google, ...) en una identidad estable. El
-// mapeo identidad → comerciante vive en la tabla `merchant_identities`.
+// mapeo identidad → usuario vive en la tabla `user_identities`.
 export interface AuthIdentity {
   provider: string; // 'palm', 'google', ...
   externalId: string; // personId (palma), sub (google), ...
@@ -15,7 +15,7 @@ export interface AuthProvider {
   authenticate(credentials: unknown, ctx: AuthContext): Promise<AuthIdentity>;
 }
 
-export type ProviderName = "palm" | "google" | "email";
+export type ProviderName = "palm" | "phone" | "google" | "email";
 
 const cache = new Map<string, AuthProvider>();
 
@@ -28,6 +28,11 @@ export async function getAuthProvider(name: string): Promise<AuthProvider> {
     case "palm": {
       const { PalmAuthProvider } = await import("./palmProvider.js");
       provider = new PalmAuthProvider();
+      break;
+    }
+    case "phone": {
+      const { PhoneAuthProvider } = await import("./phoneProvider.js");
+      provider = new PhoneAuthProvider();
       break;
     }
     // Stubs del camino futuro: enchufar sin tocar login/register ni el modelo de datos.

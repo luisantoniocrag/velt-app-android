@@ -182,32 +182,59 @@ Mismo patrón que un pago, pero al revés (saca USDC de la cuenta del comerciant
 3. `GET /api/v1/withdrawals/:id` es el **fallback** del WS.
 
 La smart account del comerciante se **deriva igual que la del pagador** (es contrafactual): se crea
-al registrar el comerciante (`POST /merchants` sin `smartAccountAddress`) y queda marcada `custodial=true`.
+al crear el comercio (`POST /merchants` sin `smartAccountAddress`) y queda marcada `custodial=true`.
 Si en cambio se trae una dirección **externa**, se respeta pero queda `custodial=false`: el backend **no
 tiene su llave**, así que `withdraw` la rechaza con `409 account_not_custodial`. Solo las cuentas
-derivadas (custodiadas por el backend) pueden retirar.
+derivadas (custodiadas por el backend) pueden retirar. El `withdraw` además exige que quien llama sea el
+**dueño** del comercio (`merchant.owner_user_id == request.userId`, si no `403 not_account_owner`).
 
-### Autenticación de comerciante (`src/auth/`) — palma → JWT, provider-agnóstica
+### Cuentas de usuario y comercios (`users` → `merchants`)
 
-Solo comerciantes (los pagos siguen sin login del pagador). Mismo patrón que `Signer`: interfaz
-`AuthProvider` (`auth/provider.ts`) elegida por nombre. `palm` implementado (`auth/palmProvider.ts`
-→ `auth/bioserver.ts`, HMAC-SHA256 portado de `VeltSensorBioService`); `google`/`email` son stubs.
-`AuthProvider.authenticate(credentials, ctx) → { provider, externalId }`; para palma
-`externalId = personId`.
+El **usuario** (`users`) es la persona dueña de **N comercios**. Tiene una o varias **identidades** de
+login (`user_identities`: teléfono, palma, ...) y administra sus comercios (`merchants.owner_user_id`)
+con CRUD autenticado en `routes/merchants.ts`: `POST /merchants` (crea, dueño = `request.userId`),
+`GET /merchants` (lista), `GET /merchants/:id` (+ `usdcBalance` on-chain vía `getUsdcBalance` de
+`chain/usdc.ts`), `PATCH /merchants/:id` (renombra), `DELETE /merchants/:id`. El helper
+`loadOwnedMerchant(userId, merchantId)` carga el comercio activo y exige propiedad (`404`/`403`); lo
+usan get/patch/delete y withdraw.
 
-La tabla **`merchant_identities` `(provider, external_id)` → `merchant_id`** liga cualquier
-identidad de cualquier proveedor a un comerciante (patrón "accounts"): añadir Google = nuevo provider
-+ filas, sin tocar login/register.
+**Borrado = soft-delete** (`users.deleted_at`, `merchants.deleted_at`): `payment_requests`/`withdrawals`
+referencian `merchants(id)` sin cascade, así que un hard-delete rompería FK y perdería historial. Las
+identidades y `refresh_tokens` **sí** se borran/revocan en duro. `DELETE /merchants/:id` y `DELETE /auth/me`
+**bloquean con `409 must_withdraw_first`** si una cuenta **custodial** tiene saldo USDC `> 0` (la guardia
+no aplica a externas: el backend no custodia esos fondos). No confundir `users` con `velt_users` (pagador).
+
+### Autenticación de usuario (`src/auth/`) — palma/teléfono → JWT, provider-agnóstica
+
+Solo el dueño (los pagos siguen sin login del pagador). Mismo patrón que `Signer`: interfaz
+`AuthProvider` (`auth/provider.ts`) elegida por nombre. Implementados: `palm` (`auth/palmProvider.ts`
+→ `auth/bioserver.ts`, HMAC-SHA256 portado de `VeltSensorBioService`) y `phone`
+(`auth/phoneProvider.ts` → `auth/supabaseAuth.ts`, OTP por SMS/WhatsApp de **Supabase Phone Auth**);
+`google`/`email` son stubs. `AuthProvider.authenticate(credentials, ctx) → { provider, externalId }`;
+palma → `externalId = personId`, teléfono → `externalId = número E.164`.
+
+**Login por teléfono** es de dos pasos: `POST /auth/phone/otp { phone, channel? }` dispara el código
+(Supabase `signInWithOtp`), y luego `register`/`login` con `provider:"phone", credentials:{ phone, code }`
+verifica (`verifyOtp`). `channel` = `"sms"` (default) o `"whatsapp"` (**solo con Twilio** como proveedor);
+la verificación es idéntica en ambos canales. Requiere `SUPABASE_ANON_KEY` (opcional en `config.ts`; el
+provider lanza si falta) y un **proveedor** configurado en el dashboard de Supabase (Authentication →
+Providers → Phone). `auth/supabaseAuth.ts` usa un cliente Supabase **separado del de PostgREST** (anon
+key, no service key).
+
+La tabla **`user_identities` `(provider, external_id)` → `user_id`** liga cualquier identidad de
+cualquier proveedor a un usuario (patrón "accounts"): añadir Google = nuevo provider + filas, sin tocar
+login/register. `POST /auth/link` añade una 2ª identidad (p. ej. la palma) a la cuenta logueada;
+`DELETE /auth/identities/:provider` la quita (no la última → `409`).
 
 **Tokens** (`auth/tokens.ts`): access JWT HS256 corto (15m, **firmado a mano con `node:crypto`**,
-`alg` fijo, compare en tiempo constante) + refresh opaco (30d) guardado **hasheado** (`sha256`) en
-`refresh_tokens`, **rotativo y revocable**; reuso de un refresh revocado → revoca toda la familia.
+`alg` fijo, compare en tiempo constante, `sub = userId`) + refresh opaco (30d) guardado **hasheado**
+(`sha256`) en `refresh_tokens`, **rotativo y revocable**; reuso de un refresh revocado → revoca toda la familia.
 
-Endpoints `/api/v1/auth/*` (`routes/auth.ts`): `register` (self-signup: verifica palma → crea+liga
-comerciante vía `createMerchant` de `routes/merchants.ts` → emite sesión), `login`, `refresh`, `logout`.
-`requireMerchantAuth` (`auth/middleware.ts`) es el preHandler que exige `Authorization: Bearer` y deja
-`request.merchantId`. Protegen `withdraw` (+ ownership: `:id` == merchant del token, si no `403`) y
-`GET /withdrawals/:id`.
+Endpoints `/api/v1/auth/*` (`routes/auth.ts`): `phone/otp` (envía el código), `register` (self-signup:
+verifica palma/teléfono → crea **usuario** + identidad → emite sesión; **no** crea comercio), `login`,
+`link`, `DELETE identities/:provider`, `GET me`, `DELETE me`, `refresh`, `logout`.
+`requireAuth` (`auth/middleware.ts`) es el preHandler que exige `Authorization: Bearer` y deja
+`request.userId`. Protege el CRUD de comercios, `withdraw`, `GET /withdrawals/:id` y los `/auth/*` de cuenta.
 
 ### Capa de firma — interfaz `Signer` (`src/chain/signer.ts`)
 
@@ -244,9 +271,10 @@ cambia al migrar entre enfoques:
   (Blink) llega en v2.
 - **Supabase con service key** (`db/client.ts`): salta RLS. Se le inyecta el `WebSocket` de `ws` porque
   supabase-js construye su RealtimeClient siempre y Node <22 no trae WS nativo (aunque no usamos realtime).
-- **Alcance v1 = solo core**: NO incluye ENS, Blink, Unlink, session keys, multi-chain, QR, apps
-  iOS/Watch ni rate limiting. El **login de comerciante** (palma → JWT) ya está; falta login del
-  pagador y proveedores extra (Google/email son stubs). Marcado como `// TODO v2` donde aplica.
+- **Alcance v1 = solo core**: NO incluye ENS, Blink, session keys, multi-chain, QR, apps
+  iOS/Watch ni rate limiting. La **cuenta de usuario** (teléfono/palma → JWT, CRUD de comercios,
+  link/unlink de identidades, borrado con guardia de saldo) ya está; falta login del **pagador** y
+  proveedores extra (Google/email son stubs). Marcado como `// TODO v2` donde aplica.
 - **`npm run dev` revienta con `TransformError: The service was stopped` / "installed esbuild for
   another platform"**: `tsx` usa el binario nativo de esbuild y a veces `node_modules/@esbuild/<plat>/bin/`
   queda vacío (al copiar `node_modules` o cambiar de versión de Node). Arreglo:

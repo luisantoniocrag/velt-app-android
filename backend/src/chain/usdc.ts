@@ -33,3 +33,12 @@ export function encodeUsdcTransfer(to: Address, amountUsdc: bigint): `0x${string
     args: [to, amountUsdc],
   });
 }
+
+export function getUsdcBalance(address: Address): Promise<bigint> {
+  return publicClient.readContract({
+    abi: erc20Abi,
+    address: USDC_ADDRESS,
+    functionName: "balanceOf",
+    args: [address],
+  });
+}

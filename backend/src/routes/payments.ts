@@ -37,6 +37,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
       .from("merchants")
       .select("id")
       .eq("id", merchantId)
+      .is("deleted_at", null)
       .maybeSingle<Pick<MerchantRow, "id">>();
     if (!merchant) throw notFound("comerciante no encontrado", "merchant_not_found");
 

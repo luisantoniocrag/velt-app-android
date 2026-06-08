@@ -8,6 +8,8 @@ const baseSchema = z.object({
 
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_KEY: z.string().min(1),
+  // anon key (pública) — solo necesaria para el login por teléfono (Supabase Phone Auth / OTP).
+  SUPABASE_ANON_KEY: z.string().min(1).optional(),
 
   ARC_RPC_URL: z.string().url(),
   ARC_CHAIN_ID: z.coerce.number().int().positive(),

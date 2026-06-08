@@ -17,11 +17,11 @@ export interface TokenPair {
   expiresIn: number; // segundos de vida del access token
 }
 
-export function signAccessToken(merchantId: string): string {
+export function signAccessToken(userId: string): string {
   const now = Math.floor(Date.now() / 1000);
   const head = b64urlJson(HEADER);
   const body = b64urlJson({
-    sub: merchantId,
+    sub: userId,
     type: "access",
     iat: now,
     exp: now + config.ACCESS_TOKEN_TTL_SECONDS,
@@ -29,7 +29,7 @@ export function signAccessToken(merchantId: string): string {
   return `${head}.${body}.${sign(`${head}.${body}`)}`;
 }
 
-export function verifyAccessToken(token: string): { merchantId: string } {
+export function verifyAccessToken(token: string): { userId: string } {
   const [head, body, sig] = token.split(".");
   if (!head || !body || !sig) throw new Error("token malformado");
 
@@ -49,22 +49,22 @@ export function verifyAccessToken(token: string): { merchantId: string } {
   if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
     throw new Error("token expirado");
   }
-  return { merchantId: payload.sub };
+  return { userId: payload.sub };
 }
 
-async function issueRefreshToken(merchantId: string): Promise<string> {
+async function issueRefreshToken(userId: string): Promise<string> {
   const raw = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + config.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString();
   const { error } = await db
     .from("refresh_tokens")
-    .insert({ merchant_id: merchantId, token_hash: hashToken(raw), expires_at: expiresAt });
+    .insert({ user_id: userId, token_hash: hashToken(raw), expires_at: expiresAt });
   if (error) throw new Error("no se pudo emitir el refresh token");
   return raw;
 }
 
-export async function issueSession(merchantId: string): Promise<TokenPair> {
-  const accessToken = signAccessToken(merchantId);
-  const refreshToken = await issueRefreshToken(merchantId);
+export async function issueSession(userId: string): Promise<TokenPair> {
+  const accessToken = signAccessToken(userId);
+  const refreshToken = await issueRefreshToken(userId);
   return { accessToken, refreshToken, expiresIn: config.ACCESS_TOKEN_TTL_SECONDS };
 }
 
@@ -77,11 +77,11 @@ export async function rotateRefreshToken(raw: string): Promise<TokenPair> {
   if (!row) throw new Error("refresh token inválido");
 
   if (row.revoked_at) {
-    // Reuso de un token ya revocado → posible robo: revoca toda la familia del comerciante.
+    // Reuso de un token ya revocado → posible robo: revoca toda la familia del usuario.
     await db
       .from("refresh_tokens")
       .update({ revoked_at: new Date().toISOString() })
-      .eq("merchant_id", row.merchant_id)
+      .eq("user_id", row.user_id)
       .is("revoked_at", null);
     throw new Error("refresh token revocado");
   }
@@ -89,7 +89,7 @@ export async function rotateRefreshToken(raw: string): Promise<TokenPair> {
 
   // Rotación: revoca el viejo y emite un par nuevo.
   await db.from("refresh_tokens").update({ revoked_at: new Date().toISOString() }).eq("id", row.id);
-  return issueSession(row.merchant_id);
+  return issueSession(row.user_id);
 }
 
 export async function revokeRefreshToken(raw: string): Promise<void> {

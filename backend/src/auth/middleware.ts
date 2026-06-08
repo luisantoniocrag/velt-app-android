@@ -4,20 +4,20 @@ import { verifyAccessToken } from "./tokens.js";
 
 declare module "fastify" {
   interface FastifyRequest {
-    merchantId?: string;
+    userId?: string;
   }
 }
 
-// preHandler: exige un access token válido y deja el merchant autenticado en request.merchantId.
-export async function requireMerchantAuth(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
+// preHandler: exige un access token válido y deja el usuario autenticado en request.userId.
+export async function requireAuth(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
   const header = request.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
     throw unauthorized("falta el token Bearer", "missing_token");
   }
 
   try {
-    const { merchantId } = verifyAccessToken(header.slice("Bearer ".length).trim());
-    request.merchantId = merchantId;
+    const { userId } = verifyAccessToken(header.slice("Bearer ".length).trim());
+    request.userId = userId;
   } catch {
     throw unauthorized("token inválido o expirado", "invalid_token");
   }

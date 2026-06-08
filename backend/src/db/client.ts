@@ -19,11 +19,19 @@ export const db: SupabaseClient = createClient(
 export type PaymentStatus = "pending" | "authorizing" | "settled" | "failed";
 export type WithdrawalStatus = "pending" | "processing" | "settled" | "failed";
 
+export interface UserRow {
+  id: string;
+  deleted_at: string | null;
+  created_at: string;
+}
+
 export interface MerchantRow {
   id: string;
   name: string;
   smart_account_address: string;
   custodial: boolean; // true → cuenta derivada por el backend (puede retirar)
+  owner_user_id: string | null;
+  deleted_at: string | null;
   created_at: string;
 }
 
@@ -58,17 +66,17 @@ export interface WithdrawalRow {
   updated_at: string;
 }
 
-export interface MerchantIdentityRow {
+export interface UserIdentityRow {
   id: string;
-  merchant_id: string;
-  provider: string; // 'palm', 'google', ...
-  external_id: string; // personId (palma), sub (google), ...
+  user_id: string;
+  provider: string; // 'phone', 'palm', 'google', ...
+  external_id: string; // E.164 (phone), personId (palma), sub (google), ...
   created_at: string;
 }
 
 export interface RefreshTokenRow {
   id: string;
-  merchant_id: string;
+  user_id: string;
   token_hash: string; // sha256 del token crudo
   expires_at: string;
   revoked_at: string | null;

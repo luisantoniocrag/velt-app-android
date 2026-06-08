@@ -6,6 +6,15 @@
 -- gen_random_uuid() vive en pgcrypto (suele venir habilitada en Supabase).
 create extension if not exists "pgcrypto";
 
+-- 5.0 users ────────────────────────────────────────────────────
+-- La persona/cuenta dueña de uno o más comercios. Sus credenciales (teléfono, palma, ...)
+-- viven en user_identities; su sesión en refresh_tokens. NO confundir con velt_users (pagador).
+create table if not exists users (
+  id          uuid primary key default gen_random_uuid(),
+  deleted_at  timestamptz,                         -- soft-delete (preserva historial financiero)
+  created_at  timestamptz not null default now()
+);
+
 -- 5.1 merchants ────────────────────────────────────────────────
 create table if not exists merchants (
   id                     uuid primary key default gen_random_uuid(),
@@ -19,6 +28,10 @@ create table if not exists merchants (
 
 -- Para tablas ya creadas antes de añadir la columna (idempotente).
 alter table merchants add column if not exists custodial boolean not null default false;
+-- Dueño del comercio + soft-delete.
+alter table merchants add column if not exists owner_user_id uuid references users (id);
+alter table merchants add column if not exists deleted_at    timestamptz;
+create index if not exists merchants_owner_idx on merchants (owner_user_id);
 
 -- 5.2 velt_users ───────────────────────────────────────────────
 create table if not exists velt_users (
@@ -83,32 +96,41 @@ create trigger withdrawals_set_updated_at
   before update on withdrawals
   for each row execute function set_updated_at();
 
--- 5.5 merchant_identities ──────────────────────────────────────
--- Identidad de auth ligada a un comerciante. (provider, external_id) único: una misma palma
--- (o cuenta Google a futuro) no puede pertenecer a dos comerciantes.
-create table if not exists merchant_identities (
+-- 5.5 user_identities ──────────────────────────────────────────
+-- Identidad de auth ligada a un USUARIO (no a un comercio). (provider, external_id) único: una
+-- misma palma/teléfono no puede pertenecer a dos usuarios. Un usuario puede tener varias.
+create table if not exists user_identities (
   id           uuid primary key default gen_random_uuid(),
-  merchant_id  uuid not null references merchants (id) on delete cascade,
-  provider     text not null,            -- 'palm', 'google', ...
-  external_id  text not null,            -- personId (palma), sub (google), ...
+  user_id      uuid not null references users (id) on delete cascade,
+  provider     text not null,            -- 'phone', 'palm', 'google', ...
+  external_id  text not null,            -- E.164 (phone), personId (palma), sub (google), ...
   created_at   timestamptz not null default now(),
   unique (provider, external_id)
 );
 
-create index if not exists merchant_identities_merchant_idx on merchant_identities (merchant_id);
+create index if not exists user_identities_user_idx on user_identities (user_id);
+
+-- (La tabla anterior merchant_identities queda inerte; el código usa user_identities.)
 
 -- 5.6 refresh_tokens ───────────────────────────────────────────
 -- Refresh tokens opacos, rotativos y revocables. Se guarda solo el sha256, nunca el token crudo.
+-- La sesión pertenece al usuario (user_id).
 create table if not exists refresh_tokens (
   id          uuid primary key default gen_random_uuid(),
-  merchant_id uuid not null references merchants (id) on delete cascade,
+  merchant_id uuid references merchants (id) on delete cascade,  -- legado (nullable); el código usa user_id
+  user_id     uuid references users (id) on delete cascade,
   token_hash  text not null unique,
   expires_at  timestamptz not null,
   revoked_at  timestamptz,
   created_at  timestamptz not null default now()
 );
 
-create index if not exists refresh_tokens_merchant_idx on refresh_tokens (merchant_id);
+-- Para tablas ya creadas antes de añadir user_id (idempotente).
+alter table refresh_tokens add column if not exists user_id uuid references users (id) on delete cascade;
+-- merchant_id pasa a opcional (las nuevas sesiones usan user_id).
+alter table refresh_tokens alter column merchant_id drop not null;
+
+create index if not exists refresh_tokens_user_idx on refresh_tokens (user_id);
 
 -- Refrescar el cache de esquema de PostgREST tras DDL (evita PGRST204 al reaplicar).
 notify pgrst, 'reload schema';

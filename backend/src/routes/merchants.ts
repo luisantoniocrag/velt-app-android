@@ -1,14 +1,14 @@
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { parseUnits, type Address } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { db, type MerchantRow, type WithdrawalRow } from "../db/client.js";
 import { badRequest, conflict, forbidden, internal, notFound } from "../lib/errors.js";
 import { emitWithdrawalEvent } from "../lib/events.js";
 import { getSigner, subjectForMerchant } from "../chain/signer.js";
-import { USDC_DECIMALS } from "../chain/usdc.js";
+import { USDC_DECIMALS, getUsdcBalance } from "../chain/usdc.js";
 import { classifyFailure } from "../chain/failures.js";
-import { requireMerchantAuth } from "../auth/middleware.js";
+import { requireAuth } from "../auth/middleware.js";
 
 const uuid = z.string().uuid();
 const evmAddress = z.string().regex(/^0x[a-fA-F0-9]{40}$/, "dirección 0x inválida");
@@ -19,16 +19,20 @@ const createMerchantSchema = z.object({
   smartAccountAddress: evmAddress.optional(),
 });
 
+const updateMerchantSchema = z.object({
+  name: z.string().min(1),
+});
+
 const withdrawSchema = z.object({
   to: evmAddress,
   amount: z.number().positive(),
 });
 
-// Crea un comerciante derivando su smart account si no trae una externa. Reusado por POST /merchants
-// y por el self-signup de auth (routes/auth.ts). Si trae dirección externa → custodial=false (no
-// retira: el backend no tiene su llave).
+// Crea un comercio derivando su smart account si no trae una externa. Si trae dirección externa →
+// custodial=false (no retira: el backend no tiene su llave).
 export async function createMerchant(input: {
   name: string;
+  ownerUserId: string;
   smartAccountAddress?: string;
 }): Promise<MerchantRow> {
   // El id se genera aquí para poder derivar la cuenta antes del insert (smart_account_address es not null).
@@ -43,42 +47,124 @@ export async function createMerchant(input: {
 
   const { data, error } = await db
     .from("merchants")
-    .insert({ id, name: input.name, smart_account_address: smartAccountAddress, custodial })
+    .insert({
+      id,
+      name: input.name,
+      smart_account_address: smartAccountAddress,
+      custodial,
+      owner_user_id: input.ownerUserId,
+    })
     .select()
     .single<MerchantRow>();
-  if (error || !data) throw internal("no se pudo crear el comerciante");
+  if (error || !data) throw internal("no se pudo crear el comercio");
+  return data;
+}
+
+const serializeMerchant = (m: MerchantRow) => ({
+  id: m.id,
+  name: m.name,
+  smartAccountAddress: m.smart_account_address,
+  custodial: m.custodial,
+});
+
+// Carga un comercio activo y exige que sea del usuario autenticado. 404 si no existe, 403 si es ajeno.
+async function loadOwnedMerchant(userId: string, merchantId: string): Promise<MerchantRow> {
+  if (!uuid.safeParse(merchantId).success) throw badRequest("id de comercio inválido", "validation_error");
+
+  const { data } = await db
+    .from("merchants")
+    .select("*")
+    .eq("id", merchantId)
+    .is("deleted_at", null)
+    .maybeSingle<MerchantRow>();
+  if (!data) throw notFound("comercio no encontrado", "merchant_not_found");
+  if (data.owner_user_id !== userId) {
+    throw forbidden("no eres el dueño de este comercio", "not_account_owner");
+  }
   return data;
 }
 
 export async function merchantRoutes(app: FastifyInstance): Promise<void> {
-  // TODO v2: abierto (creación programática / E2E de pagos). El self-signup con identidad va por
-  // POST /api/v1/auth/register. Proteger o unificar ambos.
-  app.post("/merchants", async (request, reply) => {
+  app.post("/merchants", { preHandler: requireAuth }, async (request, reply) => {
     const parsed = createMerchantSchema.safeParse(request.body);
     if (!parsed.success) {
       throw badRequest(parsed.error.issues.map((i) => i.message).join("; "), "validation_error");
     }
 
-    const merchant = await createMerchant(parsed.data);
-    return reply.code(201).send({
-      id: merchant.id,
-      name: merchant.name,
-      smartAccountAddress: merchant.smart_account_address,
-      custodial: merchant.custodial,
-    });
+    const merchant = await createMerchant({ ...parsed.data, ownerUserId: request.userId! });
+    return reply.code(201).send(serializeMerchant(merchant));
   });
+
+  app.get("/merchants", { preHandler: requireAuth }, async (request, reply) => {
+    const { data } = await db
+      .from("merchants")
+      .select("*")
+      .eq("owner_user_id", request.userId)
+      .is("deleted_at", null);
+    return reply.code(200).send((data ?? []).map(serializeMerchant));
+  });
+
+  app.get<{ Params: { id: string } }>(
+    "/merchants/:id",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const merchant = await loadOwnedMerchant(request.userId!, request.params.id);
+      const balance = await getUsdcBalance(merchant.smart_account_address as Address);
+      return reply.code(200).send({
+        ...serializeMerchant(merchant),
+        usdcBalance: formatUnits(balance, USDC_DECIMALS),
+      });
+    },
+  );
+
+  app.patch<{ Params: { id: string } }>(
+    "/merchants/:id",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const merchant = await loadOwnedMerchant(request.userId!, request.params.id);
+      const parsed = updateMerchantSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw badRequest(parsed.error.issues.map((i) => i.message).join("; "), "validation_error");
+      }
+
+      const { data, error } = await db
+        .from("merchants")
+        .update({ name: parsed.data.name })
+        .eq("id", merchant.id)
+        .select()
+        .single<MerchantRow>();
+      if (error || !data) throw internal("no se pudo actualizar el comercio");
+      return reply.code(200).send(serializeMerchant(data));
+    },
+  );
+
+  // Soft-delete (preserva el historial de pagos/retiros). Bloquea si la cuenta custodial tiene saldo.
+  app.delete<{ Params: { id: string } }>(
+    "/merchants/:id",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const merchant = await loadOwnedMerchant(request.userId!, request.params.id);
+
+      if (merchant.custodial) {
+        const balance = await getUsdcBalance(merchant.smart_account_address as Address);
+        if (balance > 0n) {
+          throw conflict(
+            "el comercio tiene saldo USDC; retíralo antes de eliminarlo",
+            "must_withdraw_first",
+          );
+        }
+      }
+
+      await db.from("merchants").update({ deleted_at: new Date().toISOString() }).eq("id", merchant.id);
+      return reply.code(204).send();
+    },
+  );
 
   app.post<{ Params: { id: string } }>(
     "/merchants/:id/withdraw",
-    { preHandler: requireMerchantAuth },
+    { preHandler: requireAuth },
     async (request, reply) => {
-      const idCheck = uuid.safeParse(request.params.id);
-      if (!idCheck.success) throw badRequest("id de comerciante inválido", "validation_error");
-
-      // Solo el propio comerciante autenticado puede retirar de su cuenta.
-      if (request.merchantId !== request.params.id) {
-        throw forbidden("no puedes retirar de otra cuenta", "not_account_owner");
-      }
+      const merchant = await loadOwnedMerchant(request.userId!, request.params.id);
 
       const parsed = withdrawSchema.safeParse(request.body);
       if (!parsed.success) {
@@ -86,18 +172,11 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
       }
       const { to, amount } = parsed.data;
 
-      const { data: merchant } = await db
-        .from("merchants")
-        .select("id, custodial")
-        .eq("id", request.params.id)
-        .maybeSingle<Pick<MerchantRow, "id" | "custodial">>();
-      if (!merchant) throw notFound("comerciante no encontrado", "merchant_not_found");
-
       // Solo cuentas derivadas por el backend pueden retirar: de una dirección externa (wallet/
-      // exchange del comerciante) el backend no tiene la llave para firmar.
+      // exchange del comercio) el backend no tiene la llave para firmar.
       if (!merchant.custodial) {
         throw conflict(
-          "la cuenta del comerciante es externa (no custodial): el backend no controla su llave y no puede retirar",
+          "la cuenta del comercio es externa (no custodial): el backend no controla su llave y no puede retirar",
           "account_not_custodial",
         );
       }
@@ -130,10 +209,11 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
 
   app.get<{ Params: { id: string } }>(
     "/withdrawals/:id",
-    { preHandler: requireMerchantAuth },
+    { preHandler: requireAuth },
     async (request, reply) => {
-      const idCheck = uuid.safeParse(request.params.id);
-      if (!idCheck.success) throw badRequest("id de retiro inválido", "validation_error");
+      if (!uuid.safeParse(request.params.id).success) {
+        throw badRequest("id de retiro inválido", "validation_error");
+      }
 
       const { data } = await db
         .from("withdrawals")
@@ -142,8 +222,13 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
         .maybeSingle<WithdrawalRow>();
       if (!data) throw notFound("retiro no encontrado", "withdrawal_not_found");
 
-      // No filtrar existencia de retiros ajenos: si no es del comerciante autenticado → 404.
-      if (data.merchant_id !== request.merchantId) {
+      // El retiro debe pertenecer a un comercio del usuario autenticado; si no → 404 (no filtrar ajenos).
+      const { data: merchant } = await db
+        .from("merchants")
+        .select("owner_user_id")
+        .eq("id", data.merchant_id)
+        .maybeSingle<Pick<MerchantRow, "owner_user_id">>();
+      if (!merchant || merchant.owner_user_id !== request.userId) {
         throw notFound("retiro no encontrado", "withdrawal_not_found");
       }
 

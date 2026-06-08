@@ -29,6 +29,7 @@ Ver [`.env.example`](.env.example). Resumen:
 |---|---|
 | `PORT` | puerto HTTP (default 3000) |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | acceso a la base de datos |
+| `SUPABASE_ANON_KEY` | opcional — solo para el login por teléfono (Supabase Phone Auth / OTP) |
 | `ARC_RPC_URL`, `ARC_CHAIN_ID` | red Arc |
 | `USDC_CONTRACT_ADDRESS` | contrato USDC en Arc |
 | `ERC4337_BUNDLER_URL`, `ERC4337_ENTRYPOINT_ADDRESS` | infraestructura ERC-4337 (EntryPoint v0.7) |
@@ -47,16 +48,25 @@ Base: `/api/v1`.
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `POST` | `/auth/register` | — | self-signup de comerciante: verifica la identidad (palma → bioserver), **crea** el comerciante, lo liga y devuelve `accessToken`+`refreshToken` |
-| `POST` | `/auth/login` | — | verifica la identidad y, si está ligada a un comerciante, emite sesión |
+| `POST` | `/auth/phone/otp` | — | login por teléfono (paso 1): envía el código por SMS/WhatsApp vía Supabase Phone Auth |
+| `POST` | `/auth/register` | — | self-signup: verifica la identidad (palma → bioserver, o teléfono → OTP), **crea el usuario**, lo liga y devuelve `accessToken`+`refreshToken`. NO crea comercios |
+| `POST` | `/auth/login` | — | verifica la identidad y, si está ligada a un usuario, emite sesión |
+| `POST` | `/auth/link` | **Bearer** | añade una identidad (p. ej. la palma) al usuario autenticado (`409 identity_in_use` si ya es de otra cuenta) |
+| `DELETE` | `/auth/identities/:provider` | **Bearer** | quita una identidad; `409 cannot_remove_last_identity` si es la única |
+| `GET` | `/auth/me` | **Bearer** | perfil: `{ userId, isNew, identities, merchants }` |
+| `DELETE` | `/auth/me` | **Bearer** | elimina la cuenta (soft-delete); `409 must_withdraw_first` si algún comercio custodial tiene saldo |
 | `POST` | `/auth/refresh` | — | rota el `refreshToken` → nuevo par (revoca el viejo) |
 | `POST` | `/auth/logout` | — | revoca el `refreshToken` (`204`) |
-| `POST` | `/merchants` | — | registra un comerciante; el backend **deriva su smart account** (ERC-4337, `custodial=true`). `smartAccountAddress` es opcional: si se envía, se respeta y la cuenta queda **externa** (`custodial=false`, no puede retirar). Sin ligar identidad (creación programática) |
+| `POST` | `/merchants` | **Bearer** | crea un comercio del usuario; el backend **deriva su smart account** (ERC-4337, `custodial=true`). `smartAccountAddress` opcional → cuenta **externa** (`custodial=false`, no retira) |
+| `GET` | `/merchants` | **Bearer** | lista los comercios activos del usuario |
+| `GET` | `/merchants/:id` | **Bearer** | un comercio del usuario + `usdcBalance` on-chain |
+| `PATCH` | `/merchants/:id` | **Bearer** | renombra un comercio del usuario |
+| `DELETE` | `/merchants/:id` | **Bearer** | elimina (soft-delete) un comercio; `409 must_withdraw_first` si custodial con saldo |
 | `POST` | `/payments/initiate` | — | crea un cobro (`pending`) → devuelve `paymentId` + `wsUrl` |
 | `POST` | `/payments/authorize` | — | recibe `personId`, responde `202`, liquida on-chain en segundo plano |
 | `GET` | `/payments/:id` | — | estado del pago (fallback del WS) |
-| `POST` | `/merchants/:id/withdraw` | **Bearer** | retira USDC a `to`; responde `202` → `withdrawalId` + `wsUrl`. Solo el **dueño** (`:id` == merchant del token, si no `403`) y **solo cuentas `custodial`** (externa → `409`) |
-| `GET` | `/withdrawals/:id` | **Bearer** | estado del retiro (fallback del WS); solo del comerciante autenticado |
+| `POST` | `/merchants/:id/withdraw` | **Bearer** | retira USDC a `to`; responde `202` → `withdrawalId` + `wsUrl`. Solo el **dueño** del comercio (si no `403`) y **solo cuentas `custodial`** (externa → `409`) |
+| `GET` | `/withdrawals/:id` | **Bearer** | estado del retiro (fallback del WS); solo del dueño |
 
 WebSocket:
 - `GET /ws/payments/:paymentId` — eventos: `authorizing` → `settled` (con `txHash`) o `failed` (con `reason`).
@@ -67,7 +77,16 @@ El socket se cierra tras el evento terminal.
 Colección de prueba de punta a punta: [`requests.http`](requests.http).
 Para el WebSocket: `wscat -c ws://localhost:3000/ws/payments/<paymentId>` (abrir **antes** de `authorize`).
 
-## Autenticación (login de comerciante)
+## Cuentas de usuario y autenticación
+
+El **usuario** (`users`) es la persona dueña de **N comercios**. Tiene una o varias **identidades**
+de login (`user_identities`: teléfono, palma, ...) y administra sus comercios (`merchants.owner_user_id`)
+vía CRUD autenticado. `register` crea el **usuario** (no un comercio); los comercios se crean luego con
+`POST /merchants`. `GET /auth/me` indica si es nuevo y qué comercios/identidades tiene; `DELETE /auth/me`
+y `DELETE /merchants/:id` hacen **soft-delete** y **bloquean con `409 must_withdraw_first`** si una
+cuenta custodial tiene saldo USDC on-chain.
+
+> No confundir con `velt_users`, que es el mapeo del **pagador** (`personId` → smart account) y no tiene login.
 
 Provider-agnóstica, mismo patrón que `Signer`: la interfaz `AuthProvider` (`src/auth/provider.ts`)
 se elige por nombre y traduce unas credenciales en una identidad estable.
@@ -75,12 +94,23 @@ se elige por nombre y traduce unas credenciales en una identidad estable.
 ```ts
 AuthProvider.authenticate(credentials, ctx) -> { provider, externalId }
    palm   → externalId = personId (verificado contra el bioserver, HMAC-SHA256)
+   phone  → externalId = teléfono E.164 (verificado por OTP contra Supabase Phone Auth)
    google → externalId = sub      (stub, futuro)
 ```
 
-La tabla `merchant_identities (provider, external_id) → merchant_id` liga cualquier identidad de
-cualquier proveedor a un comerciante (patrón "accounts"). Añadir Google mañana = un nuevo
-`AuthProvider` + filas en esa tabla; el resto no cambia.
+**Login por teléfono (Supabase Phone Auth / OTP).** Dos pasos: `POST /auth/phone/otp { phone, channel? }`
+envía un código (vía Supabase), y luego `POST /auth/register|login { provider:"phone",
+credentials:{ phone, code } }` lo verifica y emite sesión. `channel` puede ser `"sms"` (default,
+cualquier proveedor) o `"whatsapp"` (**solo con Twilio** como proveedor y un sender de WhatsApp
+aprobado). Requiere `SUPABASE_ANON_KEY` en el `.env` y un **proveedor** configurado en Supabase
+(Dashboard → Authentication → Providers → Phone: Twilio, Vonage o MessageBird — Supabase no envía
+mensajes por sí solo). El teléfono se normaliza a E.164 (`+5215512345678`) y se liga al usuario
+en `user_identities` como cualquier otra identidad.
+
+La tabla `user_identities (provider, external_id) → user_id` liga cualquier identidad de
+cualquier proveedor a un usuario (patrón "accounts"). Añadir Google mañana = un nuevo
+`AuthProvider` + filas en esa tabla; el resto no cambia. `POST /auth/link` añade una 2ª identidad
+(p. ej. la palma) a la cuenta ya logueada.
 
 **Tokens** (`src/auth/tokens.ts`): **access JWT HS256 corto** (15m, stateless, firmado a mano con
 `node:crypto`) + **refresh token opaco** (30d) guardado **hasheado** (`sha256`) en `refresh_tokens`,
