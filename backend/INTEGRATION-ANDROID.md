@@ -14,13 +14,18 @@ cuentas de usuario, comercios (CRUD), cobros y retiros.
 - Los WebSocket cuelgan de **`/ws`** (sin `/api/v1`).
 - Health check: `GET https://…/health` → `{ "ok": true }`.
 
-> **Antes de empezar, confirma que producción corre el build actual** (commit `c0a7ee4` o
-> posterior). Comprobación rápida:
+> **Antes de empezar, confirma que producción está lista.** Dos chequeos:
 > ```
+> # 1) build al día → debe dar 401 (no 404)
 > curl -o /dev/null -w "%{http_code}\n" https://velt-app-android-production.up.railway.app/api/v1/merchants
+> # 2) OTP configurado → debe dar 204 (no 500)
+> curl -o /dev/null -w "%{http_code}\n" -X POST \
+>   https://velt-app-android-production.up.railway.app/api/v1/auth/phone/otp \
+>   -H "Content-Type: application/json" -d '{"phone":"+10000000000"}'
 > ```
-> Debe dar **401** (falta token). Si da **404**, el deploy está viejo: haz push a GitHub y deja que
-> Railway redepliegue antes de integrar.
+> - **404** en (1) → el deploy está viejo: haz push y deja que Railway redepliegue.
+> - **500** en (2) → faltan las variables de Stytch en Railway (`STYTCH_PROJECT_ID`, `STYTCH_SECRET`,
+>   `STYTCH_ENV`). Es config del backend, **no de tu app**.
 
 ## Conceptos
 
@@ -59,14 +64,19 @@ Ciclo recomendado en la app:
 POST /api/v1/auth/phone/otp
 Content-Type: application/json
 
-{ "phone": "+523329728994", "channel": "sms" }
+{ "phone": "+523329728994", "channel": "whatsapp" }
 ```
-- `phone` en **E.164** (con `+` y código de país). `channel`: `"sms"` (default) o `"whatsapp"`.
-- Respuesta: **204** (sin cuerpo) → llegó el SMS/WhatsApp.
+- `phone` en **E.164** (con `+` y código de país). `channel`: `"whatsapp"` (**default y recomendado**)
+  o `"sms"`. Si omites `channel`, el backend usa **WhatsApp**.
+- Respuesta: **204** (sin cuerpo) → se envió el código.
 
-> **El envío de OTP usa Stytch.** En **modo test** (`STYTCH_ENV=test` en el backend) puedes desarrollar
-> sin SMS reales: usa el teléfono sandbox **`+10000000000`** y el código **`000000`** en el Paso 2.
-> Devuelve 204/200 sin enviar nada. Para SMS reales a tu teléfono, el backend debe correr con
+> **Usa WhatsApp como canal principal.** Probado en vivo a México (`+52`) y funciona. El **SMS a
+> México está bloqueado** salvo que se habilite el país `MX` en el allowlist de Stytch + tarjeta en la
+> cuenta; WhatsApp no tiene ese bloqueo. Por eso `channel` default = `whatsapp`.
+
+> **El envío de OTP usa Stytch.** En **modo test** (`STYTCH_ENV=test` en el backend) desarrollas sin
+> mensajes reales: usa el teléfono sandbox **`+10000000000`** y el código **`000000`** en el Paso 2
+> (devuelve 204 sin enviar nada). Para mensajes reales a tu teléfono, el backend corre con
 > `STYTCH_ENV=live` (plan de pago de Stytch).
 
 ### Paso 2 — Verificar código e iniciar sesión

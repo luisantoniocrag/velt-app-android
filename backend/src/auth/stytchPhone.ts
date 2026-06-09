@@ -45,7 +45,7 @@ async function stytchPost(path: string, body: unknown): Promise<Record<string, u
 }
 
 // Paso 1: envía el código (crea el usuario Stytch si no existe — no lo usamos como fuente de verdad).
-export async function sendPhoneOtp(phone: string, channel: OtpChannel = "sms"): Promise<void> {
+export async function sendPhoneOtp(phone: string, channel: OtpChannel = "whatsapp"): Promise<void> {
   const path = channel === "whatsapp" ? "/v1/otps/whatsapp/login_or_create" : "/v1/otps/sms/login_or_create";
   const data = await stytchPost(path, { phone_number: phone });
   const methodId = data.phone_id as string | undefined;

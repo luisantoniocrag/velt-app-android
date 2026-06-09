@@ -101,7 +101,7 @@ AuthProvider.authenticate(credentials, ctx) -> { provider, externalId }
 **Login por teléfono (Stytch OTP).** Dos pasos: `POST /auth/phone/otp { phone, channel? }` envía un
 código (Stytch `otps/{sms|whatsapp}/login_or_create`), y luego `POST /auth/register|login {
 provider:"phone", credentials:{ phone, code } }` lo verifica (`otps/authenticate`) y emite sesión.
-`channel` puede ser `"sms"` (default) o `"whatsapp"`. Requiere `STYTCH_PROJECT_ID` y `STYTCH_SECRET`
+`channel` puede ser `"whatsapp"` (default) o `"sms"`. Requiere `STYTCH_PROJECT_ID` y `STYTCH_SECRET`
 en el `.env` (Stytch Dashboard → API Keys). `STYTCH_ENV=test` usa **números sandbox** (`+10000000000`,
 código `000000`) sin enviar SMS reales; `STYTCH_ENV=live` envía SMS reales (requiere plan de pago).
 El backend guarda el `phone_id` (method_id) en memoria entre enviar y verificar, así el contrato hacia

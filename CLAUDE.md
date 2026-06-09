@@ -215,7 +215,8 @@ palma → `externalId = personId`, teléfono → `externalId = número E.164`.
 
 **Login por teléfono** es de dos pasos: `POST /auth/phone/otp { phone, channel? }` dispara el código
 (Stytch `otps/{sms|whatsapp}/login_or_create`), y luego `register`/`login` con `provider:"phone",
-credentials:{ phone, code }` verifica (`otps/authenticate`). `channel` = `"sms"` (default) o `"whatsapp"`.
+credentials:{ phone, code }` verifica (`otps/authenticate`). `channel` = `"whatsapp"` (default) o `"sms"`
+(SMS a México requiere habilitar `MX` en el allowlist de Stytch + tarjeta; WhatsApp no).
 Requiere `STYTCH_PROJECT_ID`/`STYTCH_SECRET` (opcionales en `config.ts`; el provider lanza si faltan) y
 `STYTCH_ENV` (`test` = números sandbox `+10000000000`/código `000000` sin SMS real; `live` = SMS real,
 plan de pago). `auth/stytchPhone.ts` llama a la API REST de Stytch (Basic Auth) y guarda el `phone_id`

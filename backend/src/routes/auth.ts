@@ -36,7 +36,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       throw badRequest((err as Error).message, "invalid_phone");
     }
     try {
-      await sendPhoneOtp(phone, parsed.data.channel ?? "sms");
+      await sendPhoneOtp(phone, parsed.data.channel ?? "whatsapp");
     } catch (err) {
       request.log.warn({ err }, "fallo al enviar OTP");
       throw internal("no se pudo enviar el código");
