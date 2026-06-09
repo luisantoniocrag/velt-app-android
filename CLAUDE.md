@@ -209,17 +209,19 @@ no aplica a externas: el backend no custodia esos fondos). No confundir `users` 
 Solo el dueño (los pagos siguen sin login del pagador). Mismo patrón que `Signer`: interfaz
 `AuthProvider` (`auth/provider.ts`) elegida por nombre. Implementados: `palm` (`auth/palmProvider.ts`
 → `auth/bioserver.ts`, HMAC-SHA256 portado de `VeltSensorBioService`) y `phone`
-(`auth/phoneProvider.ts` → `auth/supabaseAuth.ts`, OTP por SMS/WhatsApp de **Supabase Phone Auth**);
+(`auth/phoneProvider.ts` → `auth/stytchPhone.ts`, OTP por SMS/WhatsApp vía **Stytch**);
 `google`/`email` son stubs. `AuthProvider.authenticate(credentials, ctx) → { provider, externalId }`;
 palma → `externalId = personId`, teléfono → `externalId = número E.164`.
 
 **Login por teléfono** es de dos pasos: `POST /auth/phone/otp { phone, channel? }` dispara el código
-(Supabase `signInWithOtp`), y luego `register`/`login` con `provider:"phone", credentials:{ phone, code }`
-verifica (`verifyOtp`). `channel` = `"sms"` (default) o `"whatsapp"` (**solo con Twilio** como proveedor);
-la verificación es idéntica en ambos canales. Requiere `SUPABASE_ANON_KEY` (opcional en `config.ts`; el
-provider lanza si falta) y un **proveedor** configurado en el dashboard de Supabase (Authentication →
-Providers → Phone). `auth/supabaseAuth.ts` usa un cliente Supabase **separado del de PostgREST** (anon
-key, no service key).
+(Stytch `otps/{sms|whatsapp}/login_or_create`), y luego `register`/`login` con `provider:"phone",
+credentials:{ phone, code }` verifica (`otps/authenticate`). `channel` = `"sms"` (default) o `"whatsapp"`.
+Requiere `STYTCH_PROJECT_ID`/`STYTCH_SECRET` (opcionales en `config.ts`; el provider lanza si faltan) y
+`STYTCH_ENV` (`test` = números sandbox `+10000000000`/código `000000` sin SMS real; `live` = SMS real,
+plan de pago). `auth/stytchPhone.ts` llama a la API REST de Stytch (Basic Auth) y guarda el `phone_id`
+(method_id) en un **Map en memoria con TTL** entre enviar y verificar, para que el contrato hacia la app
+no cambie (`{phone}` → `{phone, code}`). Single-instance, como el registro de sockets: un redeploy entre
+ambos pasos invalida el OTP pendiente.
 
 La tabla **`user_identities` `(provider, external_id)` → `user_id`** liga cualquier identidad de
 cualquier proveedor a un usuario (patrón "accounts"): añadir Google = nuevo provider + filas, sin tocar

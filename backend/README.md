@@ -29,7 +29,7 @@ Ver [`.env.example`](.env.example). Resumen:
 |---|---|
 | `PORT` | puerto HTTP (default 3000) |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | acceso a la base de datos |
-| `SUPABASE_ANON_KEY` | opcional — solo para el login por teléfono (Supabase Phone Auth / OTP) |
+| `STYTCH_PROJECT_ID`, `STYTCH_SECRET`, `STYTCH_ENV` | login por teléfono (OTP por SMS/WhatsApp vía Stytch). `STYTCH_ENV`: `test` (sandbox) \| `live` |
 | `ARC_RPC_URL`, `ARC_CHAIN_ID` | red Arc |
 | `USDC_CONTRACT_ADDRESS` | contrato USDC en Arc |
 | `ERC4337_BUNDLER_URL`, `ERC4337_ENTRYPOINT_ADDRESS` | infraestructura ERC-4337 (EntryPoint v0.7) |
@@ -48,7 +48,7 @@ Base: `/api/v1`.
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `POST` | `/auth/phone/otp` | — | login por teléfono (paso 1): envía el código por SMS/WhatsApp vía Supabase Phone Auth |
+| `POST` | `/auth/phone/otp` | — | login por teléfono (paso 1): envía el código por SMS/WhatsApp vía Stytch |
 | `POST` | `/auth/register` | — | self-signup: verifica la identidad (palma → bioserver, o teléfono → OTP), **crea el usuario**, lo liga y devuelve `accessToken`+`refreshToken`. NO crea comercios |
 | `POST` | `/auth/login` | — | verifica la identidad y, si está ligada a un usuario, emite sesión |
 | `POST` | `/auth/link` | **Bearer** | añade una identidad (p. ej. la palma) al usuario autenticado (`409 identity_in_use` si ya es de otra cuenta) |
@@ -94,18 +94,19 @@ se elige por nombre y traduce unas credenciales en una identidad estable.
 ```ts
 AuthProvider.authenticate(credentials, ctx) -> { provider, externalId }
    palm   → externalId = personId (verificado contra el bioserver, HMAC-SHA256)
-   phone  → externalId = teléfono E.164 (verificado por OTP contra Supabase Phone Auth)
+   phone  → externalId = teléfono E.164 (verificado por OTP contra Stytch)
    google → externalId = sub      (stub, futuro)
 ```
 
-**Login por teléfono (Supabase Phone Auth / OTP).** Dos pasos: `POST /auth/phone/otp { phone, channel? }`
-envía un código (vía Supabase), y luego `POST /auth/register|login { provider:"phone",
-credentials:{ phone, code } }` lo verifica y emite sesión. `channel` puede ser `"sms"` (default,
-cualquier proveedor) o `"whatsapp"` (**solo con Twilio** como proveedor y un sender de WhatsApp
-aprobado). Requiere `SUPABASE_ANON_KEY` en el `.env` y un **proveedor** configurado en Supabase
-(Dashboard → Authentication → Providers → Phone: Twilio, Vonage o MessageBird — Supabase no envía
-mensajes por sí solo). El teléfono se normaliza a E.164 (`+5215512345678`) y se liga al usuario
-en `user_identities` como cualquier otra identidad.
+**Login por teléfono (Stytch OTP).** Dos pasos: `POST /auth/phone/otp { phone, channel? }` envía un
+código (Stytch `otps/{sms|whatsapp}/login_or_create`), y luego `POST /auth/register|login {
+provider:"phone", credentials:{ phone, code } }` lo verifica (`otps/authenticate`) y emite sesión.
+`channel` puede ser `"sms"` (default) o `"whatsapp"`. Requiere `STYTCH_PROJECT_ID` y `STYTCH_SECRET`
+en el `.env` (Stytch Dashboard → API Keys). `STYTCH_ENV=test` usa **números sandbox** (`+10000000000`,
+código `000000`) sin enviar SMS reales; `STYTCH_ENV=live` envía SMS reales (requiere plan de pago).
+El backend guarda el `phone_id` (method_id) en memoria entre enviar y verificar, así el contrato hacia
+la app no cambia (`{phone}` → `{phone, code}`). El teléfono se normaliza a E.164 y se liga al usuario
+en `user_identities`.
 
 La tabla `user_identities (provider, external_id) → user_id` liga cualquier identidad de
 cualquier proveedor a un usuario (patrón "accounts"). Añadir Google mañana = un nuevo

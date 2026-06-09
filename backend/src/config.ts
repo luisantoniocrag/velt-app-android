@@ -8,8 +8,6 @@ const baseSchema = z.object({
 
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_KEY: z.string().min(1),
-  // anon key (pública) — solo necesaria para el login por teléfono (Supabase Phone Auth / OTP).
-  SUPABASE_ANON_KEY: z.string().min(1).optional(),
 
   ARC_RPC_URL: z.string().url(),
   ARC_CHAIN_ID: z.coerce.number().int().positive(),
@@ -32,6 +30,11 @@ const baseSchema = z.object({
   BIOSERVER_URL: z.string().url().default("https://openpalm.io/admin-app/"),
   BIOSERVER_CLIENT_ID: z.string().min(1),
   BIOSERVER_SHARED_SECRET: z.string().min(1),
+
+  // Stytch (login por teléfono — OTP por SMS/WhatsApp). STYTCH_ENV=test usa números sandbox.
+  STYTCH_ENV: z.enum(["test", "live"]).default("test"),
+  STYTCH_PROJECT_ID: z.string().min(1).optional(),
+  STYTCH_SECRET: z.string().min(1).optional(),
 });
 
 const schema = baseSchema.superRefine((cfg, ctx) => {

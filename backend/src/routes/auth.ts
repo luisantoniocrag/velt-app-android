@@ -5,7 +5,7 @@ import { db, type UserIdentityRow, type UserRow } from "../db/client.js";
 import { badRequest, conflict, internal, notFound, unauthorized } from "../lib/errors.js";
 import { getAuthProvider, type AuthIdentity } from "../auth/provider.js";
 import { issueSession, revokeRefreshToken, rotateRefreshToken } from "../auth/tokens.js";
-import { normalizePhone, sendPhoneOtp } from "../auth/supabaseAuth.js";
+import { normalizePhone, sendPhoneOtp } from "../auth/stytchPhone.js";
 import { requireAuth } from "../auth/middleware.js";
 import { getUsdcBalance } from "../chain/usdc.js";
 
@@ -22,7 +22,7 @@ const phoneOtpSchema = z.object({
 });
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
-  // Paso previo del login por teléfono: dispara el SMS/WhatsApp con el código (Supabase Phone Auth).
+  // Paso previo del login por teléfono: dispara el SMS/WhatsApp con el código (Stytch).
   // Luego se usa /auth/register o /auth/login con provider:"phone", credentials:{ phone, code }.
   app.post("/auth/phone/otp", async (request, reply) => {
     const parsed = phoneOtpSchema.safeParse(request.body);

@@ -32,9 +32,11 @@ Requeridas (el server no arranca sin ellas — validación zod en `src/config.ts
 | `LOCAL_SIGNER_MASTER_KEY` | **secreto — controla todas las llaves derivadas** |
 | `JWT_SECRET` | **secreto — controla las sesiones**; ≥32 chars |
 | `BIOSERVER_CLIENT_ID`, `BIOSERVER_SHARED_SECRET` | bioserver (palma) |
+| `STYTCH_PROJECT_ID`, `STYTCH_SECRET` | login por teléfono (OTP vía Stytch). Sin ellas, `/auth/phone/otp` da 500 |
 
-Opcionales (tienen default, solo si quieres cambiarlas): `ACCESS_TOKEN_TTL_SECONDS` (900),
-`REFRESH_TOKEN_TTL_SECONDS` (2592000), `BIOSERVER_URL` (`https://openpalm.io/admin-app/`).
+Opcionales (tienen default, solo si quieres cambiarlas): `STYTCH_ENV` (`test`; pon `live` para SMS
+reales), `ACCESS_TOKEN_TTL_SECONDS` (900), `REFRESH_TOKEN_TTL_SECONDS` (2592000), `BIOSERVER_URL`
+(`https://openpalm.io/admin-app/`).
 
 ## 3. Dominio público
 

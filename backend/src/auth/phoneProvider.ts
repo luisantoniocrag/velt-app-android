@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AuthContext, AuthIdentity, AuthProvider } from "./provider.js";
-import { normalizePhone, verifyPhoneOtp } from "./supabaseAuth.js";
+import { normalizePhone, verifyPhoneOtp } from "./stytchPhone.js";
 
 const credentialsSchema = z.object({
   phone: z.string().min(1, "phone requerido"),

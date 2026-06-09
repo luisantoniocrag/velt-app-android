@@ -11,7 +11,7 @@ GET {{host}}/health
 ### ── Autenticación de USUARIO (persona dueña de N comercios) ──
 ### El usuario se registra por teléfono o palma; luego crea/administra comercios.
 
-### A0. (teléfono) Enviar el código. channel: "sms" (default) | "whatsapp" (solo Twilio).
+### A0. (teléfono) Enviar el código (Stytch). channel: "sms" (default) | "whatsapp".
 POST {{api}}/auth/phone/otp
 Content-Type: application/json
 
