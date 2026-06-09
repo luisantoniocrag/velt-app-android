@@ -4,7 +4,7 @@
     <string name="ob_splash_sub">Paga con tu palma en 2 segundos.\nSin tarjeta. Sin teléfono. Solo tú.</string>
     <string name="ob_splash_cta">Continuar</string>
 
-    <string name="ob_phone_title">Crear cuenta</string>
+    <string name="ob_phone_title">Identificate</string>
     <string name="ob_phone_h">Tu número de teléfono</string>
     <string name="ob_phone_sub">Te enviaremos un código de verificación por WhatsApp o SMS.</string>
     <string name="ob_phone_kpad_lbl">Usa el teclado o escribe arriba</string>
@@ -31,7 +31,7 @@
 
     <string name="ob_kyc_title">Verificar identidad</string>
     <string name="ob_kyc_h">Verifica tu identidad</string>
-    <string name="ob_kyc_sub">Requerido por regulación. Solo tarda 2 minutos.</string>
+    <string name="ob_kyc_sub">Requerido por regulación. Solo tarda 2 minutos.</string>|
     <string name="ob_kyc_choose">Elige tu documento</string>
     <string name="ob_kyc_opt1">INE / IFE</string>
     <string name="ob_kyc_opt2">Pasaporte</string>

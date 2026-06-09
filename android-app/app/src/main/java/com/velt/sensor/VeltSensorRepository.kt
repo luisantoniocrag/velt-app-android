@@ -39,8 +39,25 @@ class VeltSensorRepository(
         return client.sendCapture()
     }
 
+    suspend fun connect(): Boolean {
+        Log.d(TAG, "connect: wake BLE...")
+        val woke = try {
+            client.connectBleAndWake().await()
+        } catch (t: Throwable) {
+            Log.e(TAG, "connect: error en wake BLE", t)
+            false
+        }
+        if (woke) delay(800)
+        Log.d(TAG, "connect: conectando SPP...")
+        return client.connectClassicAndStartReader().await()
+    }
+
     suspend fun stopCapture() {
         client.sendIdle()
+    }
+
+    suspend fun setLed(rgbInt: Int, blink: Boolean, onMs: Int = 300, offMs: Int = 300) {
+        client.setColor(rgbInt, blinkEnabled = blink, blinkOnMs = onMs, blinkOffMs = offMs)
     }
 
     suspend fun setLedWhiteBlink() {

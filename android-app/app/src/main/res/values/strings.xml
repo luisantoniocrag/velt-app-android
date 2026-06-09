@@ -6,7 +6,7 @@
     <string name="ob_splash_sub">Pay with your palm in 2 seconds.\nNo card. No phone. Just you.</string>
     <string name="ob_splash_cta">Continue</string>
 
-    <string name="ob_phone_title">Create account</string>
+    <string name="ob_phone_title">Authentication</string>
     <string name="ob_phone_h">Your phone number</string>
     <string name="ob_phone_sub">We\'ll send a verification code via WhatsApp or SMS.</string>
     <string name="ob_phone_kpad_lbl">Use the keypad or type above</string>

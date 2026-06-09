@@ -111,7 +111,8 @@ class VeltSensorClient(
         val adapter = adapter ?: run {
             emitError("Bluetooth no disponible para wake BLE"); return@async false
         }
-        val device = resolveDevice(adapter) ?: run {
+        logBonded(adapter)
+        val device = resolveBleDevice(adapter) ?: run {
             emitError("No hay dispositivo emparejado para wake BLE"); return@async false
         }
         Log.d(TAG, "🔵 Wake BLE: conectando GATT a ${device.name} (${device.address})")
@@ -211,7 +212,7 @@ class VeltSensorClient(
             return@async false
         }
 
-        val device = resolveDevice(adapter)
+        val device = resolveSppDevice(adapter)
         if (device == null) {
             emitError("No hay dispositivo SPP emparejado. Empareja el sensor Velt primero.")
             return@async false
@@ -392,15 +393,57 @@ class VeltSensorClient(
         }
     }
 
+    private fun isSensorName(name: String?): Boolean {
+        val n = name ?: return false
+        return n.startsWith("OpenPalm", ignoreCase = true) || n.startsWith("PalmPay", ignoreCase = true)
+    }
+
     @SuppressLint("MissingPermission")
-    private fun resolveDevice(adapter: BluetoothAdapter): BluetoothDevice? {
+    private fun logBonded(adapter: BluetoothAdapter) {
+        val bonded = adapter.bondedDevices ?: emptySet()
+        Log.d(TAG, "🔗 Emparejados (${bonded.size}):")
+        bonded.forEach { d ->
+            val type = when (d.type) {
+                BluetoothDevice.DEVICE_TYPE_CLASSIC -> "CLASSIC"
+                BluetoothDevice.DEVICE_TYPE_LE -> "LE"
+                BluetoothDevice.DEVICE_TYPE_DUAL -> "DUAL"
+                else -> "UNKNOWN"
+            }
+            Log.d(TAG, "   • ${d.name} (${d.address}) type=$type sensor=${isSensorName(d.name)}")
+        }
+    }
+
+    /** Dispositivo para SPP (clásico): el seleccionado, o un sensor que soporte clásico/dual. */
+    @SuppressLint("MissingPermission")
+    private fun resolveSppDevice(adapter: BluetoothAdapter): BluetoothDevice? {
         val bonded = adapter.bondedDevices ?: emptySet()
         if (sppDeviceName != null) {
-            return bonded.firstOrNull { it.address.equals(sppDeviceName, ignoreCase = true) }
-                ?: bonded.firstOrNull { it.name.equals(sppDeviceName, ignoreCase = true) }
+            bonded.firstOrNull { it.address.equals(sppDeviceName, ignoreCase = true) }
+                ?.let { return it }
+            bonded.firstOrNull { it.name.equals(sppDeviceName, ignoreCase = true) }
+                ?.let { return it }
         }
-        return bonded.firstOrNull { it.name?.startsWith("OpenPalm", ignoreCase = true) == true }
+        return bonded.firstOrNull {
+            isSensorName(it.name) && it.type != BluetoothDevice.DEVICE_TYPE_LE
+        }
+            ?: bonded.firstOrNull { isSensorName(it.name) }
             ?: bonded.firstOrNull()
+    }
+
+    /**
+     * Dispositivo para el wake BLE. Según el manual, el wake vive en un dispositivo BLE distinto
+     * (p. ej. "PalmPayLE_*"). Se resuelve por tipo LE/DUAL (o nombre con "LE") y, si solo hay un
+     * dispositivo dual, se reutiliza el de SPP.
+     */
+    @SuppressLint("MissingPermission")
+    private fun resolveBleDevice(adapter: BluetoothAdapter): BluetoothDevice? {
+        val bonded = adapter.bondedDevices ?: emptySet()
+        return bonded.firstOrNull { isSensorName(it.name) && it.name?.contains("LE", ignoreCase = true) == true }
+            ?: bonded.firstOrNull {
+                isSensorName(it.name) &&
+                    (it.type == BluetoothDevice.DEVICE_TYPE_LE || it.type == BluetoothDevice.DEVICE_TYPE_DUAL)
+            }
+            ?: resolveSppDevice(adapter)
     }
 
     private fun emit(e: Event) { _events.tryEmit(e) }

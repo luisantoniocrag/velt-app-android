@@ -40,7 +40,7 @@ import com.velt.ui.theme.Velt
 fun OtpBoxes(value: String, cursor: Int) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         repeat(6) { i ->
             val ch = value.getOrNull(i)?.toString()
@@ -53,7 +53,7 @@ fun OtpBoxes(value: String, cursor: Int) {
             }
             Box(
                 modifier = Modifier
-                    .width(40.dp)
+                    .weight(1f)
                     .height(50.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Velt.Surf)

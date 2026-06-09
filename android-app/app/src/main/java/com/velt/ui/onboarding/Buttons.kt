@@ -29,12 +29,14 @@ fun PrimaryButton(
     text: String,
     modifier: Modifier = Modifier,
     containerColor: androidx.compose.ui.graphics.Color = Velt.Cyan,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "btnp")
-    val bg by androidx.compose.animation.animateColorAsState(containerColor, label = "btnpbg")
+    val scale by animateFloatAsState(if (pressed && enabled) 0.97f else 1f, label = "btnp")
+    val target = if (enabled) containerColor else Velt.Card
+    val bg by androidx.compose.animation.animateColorAsState(target, label = "btnpbg")
 
     Box(
         modifier = modifier
@@ -43,10 +45,15 @@ fun PrimaryButton(
             .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(bg)
-            .clickable(interaction, indication = null) { onClick() },
+            .clickable(interaction, indication = null, enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Velt.OnCyan)
+        Text(
+            text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (enabled) Velt.OnCyan else Velt.T3
+        )
     }
 }
 

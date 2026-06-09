@@ -6,8 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,7 +40,8 @@ import androidx.compose.ui.unit.sp
 import com.velt.ui.theme.Velt
 import kotlinx.coroutines.launch
 
-private data class Key(val digit: String, val letters: String? = null)
+fun keypadAreaHeight(available: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    (available - 330.dp).coerceIn(180.dp, 360.dp)
 
 @Composable
 fun CircularKeypad(
@@ -47,38 +50,56 @@ fun CircularKeypad(
     onDelete: () -> Unit
 ) {
     val rows = listOf(
-        listOf(Key("1"), Key("2", "ABC"), Key("3", "DEF")),
-        listOf(Key("4", "GHI"), Key("5", "JKL"), Key("6", "MNO")),
-        listOf(Key("7", "PRS"), Key("8", "TUV"), Key("9", "WXY"))
+        listOf("1", "2", "3"),
+        listOf("4", "5", "6"),
+        listOf("7", "8", "9")
     )
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { key ->
-                    KeypadCell(onTap = { onKey(key.digit) }) {
-                        Text(key.digit, fontSize = 26.sp, fontWeight = FontWeight.Light, color = Velt.T1)
-                        key.letters?.let {
-                            Text(it, fontSize = 7.5.sp, color = Velt.T3, letterSpacing = 1.sp)
+    BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
+        val minHGap = 8.dp
+        val vGap = 10.dp
+        val byWidth = (maxWidth - minHGap * 2) / 3
+        val byHeight = (maxHeight - vGap * 3) / 4
+        val cell = minOf(byWidth, byHeight, 120.dp).coerceAtLeast(40.dp)
+        val zeroWidth = (maxWidth + cell) / 2
+        val digitSize = (cell.value * 0.42f).sp
+        val deleteSize = cell * 0.4f
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(vGap)
+        ) {
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    row.forEach { digit ->
+                        KeypadCell(width = cell, height = cell, onTap = { onKey(digit) }) {
+                            Text(digit, fontSize = digitSize, fontWeight = FontWeight.Light, color = Velt.T1)
                         }
                     }
                 }
             }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            KeypadCell(width = 154.dp, shape = RoundedCornerShape(36.dp), onTap = { onKey("0") }) {
-                Text("0", fontSize = 26.sp, fontWeight = FontWeight.Light, color = Velt.T1)
-            }
-            KeypadCell(onTap = onDelete) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Backspace,
-                    contentDescription = "Borrar",
-                    tint = Velt.Cyan,
-                    modifier = Modifier.size(20.dp)
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                KeypadCell(
+                    width = zeroWidth,
+                    height = cell,
+                    shape = RoundedCornerShape(cell / 2),
+                    onTap = { onKey("0") }
+                ) {
+                    Text("0", fontSize = digitSize, fontWeight = FontWeight.Light, color = Velt.T1)
+                }
+                KeypadCell(width = cell, height = cell, onTap = onDelete) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Backspace,
+                        contentDescription = "Borrar",
+                        tint = Velt.Cyan,
+                        modifier = Modifier.size(deleteSize)
+                    )
+                }
             }
         }
     }
@@ -86,7 +107,8 @@ fun CircularKeypad(
 
 @Composable
 private fun KeypadCell(
-    width: androidx.compose.ui.unit.Dp = 72.dp,
+    width: androidx.compose.ui.unit.Dp,
+    height: androidx.compose.ui.unit.Dp,
     shape: Shape = CircleShape,
     onTap: () -> Unit,
     content: @Composable () -> Unit
@@ -100,7 +122,7 @@ private fun KeypadCell(
     Box(
         modifier = Modifier
             .width(width)
-            .height(72.dp)
+            .height(height)
             .scale(scale)
             .clip(shape)
             .background(if (pressed) Color(0xFF1F2240) else Velt.Card)

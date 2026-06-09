@@ -2,8 +2,10 @@ package com.velt.ui.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,12 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.velt.ui.theme.DmSans
@@ -54,88 +51,114 @@ fun PhoneScreen(
     strings: OnboardingStrings,
     lang: Lang,
     onLang: (Lang) -> Unit,
+    error: String? = null,
     onBack: () -> Unit,
-    onNext: () -> Unit
+    onNext: (display: String, e164: String) -> Unit
 ) {
-    var raw by rememberSaveable { mutableStateOf("5598765432") }
+    var raw by rememberSaveable { mutableStateOf("") }
+    var country by remember { mutableStateOf(defaultCountry) }
+    var showCountryPicker by remember { mutableStateOf(false) }
+
+    if (showCountryPicker) {
+        CountryPickerSheet(
+            title = if (lang == Lang.ES) "Selecciona tu país" else "Select your country",
+            searchPlaceholder = if (lang == Lang.ES) "Buscar país" else "Search country",
+            onDismiss = { showCountryPicker = false },
+            onSelect = {
+                country = it
+                showCountryPicker = false
+            }
+        )
+    }
 
     ObScaffold(lang, onLang) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            ObBackHeader(strings.phoneTitle, onBack)
-            OnboardingDots(current = 0)
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val keypadH = keypadAreaHeight(maxHeight)
+            Column(modifier = Modifier.fillMaxSize()) {
+                ObBackHeader(strings.phoneTitle, onBack)
+                OnboardingDots(current = 0)
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 22.dp, end = 22.dp, top = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column {
-                    Text(strings.phoneH, fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
-                    Spacer(Modifier.height(5.dp))
-                    Text(strings.phoneSub, fontSize = 13.sp, color = Velt.T2, lineHeight = 19.sp)
-                }
-
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(IntrinsicSize.Min)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Velt.Surf)
-                        .border(1.dp, Velt.Border, RoundedCornerShape(14.dp)),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(start = 22.dp, end = 22.dp, top = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    Column {
+                        Text(strings.phoneH, fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
+                        Spacer(Modifier.height(5.dp))
+                        Text(strings.phoneSub, fontSize = 13.sp, color = Velt.T2, lineHeight = 19.sp)
+                    }
+
                     Row(
                         modifier = Modifier
-                            .padding(horizontal = 14.dp, vertical = 13.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Velt.Surf)
+                            .border(1.dp, Velt.Border, RoundedCornerShape(14.dp)),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🇲🇽", fontSize = 18.sp)
-                        Text("+52", fontSize = 14.sp, color = Velt.T2)
-                        Icon(Icons.Filled.KeyboardArrowDown, null, tint = Velt.T3, modifier = Modifier.size(12.dp))
-                    }
-                    Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Velt.Border))
-                    BasicTextField(
-                        value = formatMx(raw),
-                        onValueChange = { raw = it.filter(Char::isDigit).take(10) },
-                        textStyle = TextStyle(fontFamily = DmSans, fontSize = 16.sp, color = Velt.T1, letterSpacing = 0.8.sp),
-                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Velt.Cyan),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f).padding(horizontal = 14.dp),
-                        decorationBox = { inner ->
-                            if (raw.isEmpty()) Text("55 1234 5678", fontSize = 16.sp, color = Velt.T3)
-                            inner()
+                        Row(
+                            modifier = Modifier
+                                .clickable { showCountryPicker = true }
+                                .padding(horizontal = 14.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(country.flag, fontSize = 18.sp)
+                            Text(country.dial, fontSize = 14.sp, color = Velt.T2)
+                            Icon(Icons.Filled.KeyboardArrowDown, null, tint = Velt.T3, modifier = Modifier.size(12.dp))
                         }
+                        Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Velt.Border))
+                        BasicTextField(
+                            value = formatMx(raw),
+                            onValueChange = { raw = it.filter(Char::isDigit).take(10) },
+                            textStyle = TextStyle(fontFamily = DmSans, fontSize = 16.sp, color = Velt.T1, letterSpacing = 0.8.sp),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Velt.Cyan),
+                            readOnly = true,
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).padding(horizontal = 14.dp),
+                            decorationBox = { inner ->
+                                if (raw.isEmpty()) Text("55 1234 5678", fontSize = 16.sp, color = Velt.T3)
+                                inner()
+                            }
+                        )
+                    }
+
+                    if (error != null) {
+                        Text(error, fontSize = 12.sp, color = Velt.Red, lineHeight = 16.sp)
+                    }
+                }
+
+                Spacer(Modifier.weight(1f))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(keypadH)
+                        .padding(horizontal = 22.dp)
+                ) {
+                    CircularKeypad(
+                        modifier = Modifier.fillMaxSize(),
+                        onKey = { if (raw.length < 10) raw += it },
+                        onDelete = { raw = raw.dropLast(1) }
                     )
                 }
 
-                Text(
-                    strings.phoneKpadLbl,
-                    fontSize = 11.sp,
-                    color = Velt.T3,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Spacer(Modifier.weight(1f))
 
-                CircularKeypad(
-                    modifier = Modifier.weight(1f).align(Alignment.CenterHorizontally),
-                    onKey = { if (raw.length < 10) raw += it },
-                    onDelete = { raw = raw.dropLast(1) }
-                )
-
-                PrimaryButton(strings.phoneNext, onClick = onNext)
-
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = Velt.T3)) { append(strings.phoneTerms) }
-                        withStyle(SpanStyle(color = Velt.Cyan)) { append(strings.phoneTermsLink) }
-                    },
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 22.dp, end = 22.dp, top = 16.dp, bottom = 16.dp)
+                ) {
+                    PrimaryButton(
+                        strings.phoneNext,
+                        enabled = raw.length >= 7,
+                        onClick = { onNext("${country.dial} ${formatMx(raw)}", "${country.dial}$raw") }
+                    )
+                }
             }
         }
     }
