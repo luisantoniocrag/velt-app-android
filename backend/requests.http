@@ -17,10 +17,11 @@ Content-Type: application/json
 
 { "phone": "+5215512345678" }
 
-### A1. Registro (self-signup): crea el USUARIO + liga la identidad + devuelve tokens.
-###      Teléfono: usa el código del SMS. Palma: reemplaza BASE64_TEMPLATE por un template real.
-# @name register
-POST {{api}}/auth/register
+### A1. Verify (login-or-create): UN solo endpoint. Verifica el código y emite sesión; si la
+###      identidad no existe, crea el usuario. La respuesta trae "userCreated" (true=cuenta nueva).
+###      Teléfono: usa el código del OTP. Palma: reemplaza BASE64_TEMPLATE por un template real.
+# @name verify
+POST {{api}}/auth/verify
 Content-Type: application/json
 
 {
@@ -28,18 +29,9 @@ Content-Type: application/json
   "credentials": { "phone": "+5215512345678", "code": "123456" }
 }
 
-### Copiar de la respuesta: user.id, accessToken, refreshToken
+### Copiar de la respuesta: userId, userCreated, accessToken, refreshToken
 @accessToken = PEGA_AQUI_EL_ACCESS_TOKEN
 @refreshToken = PEGA_AQUI_EL_REFRESH_TOKEN
-
-### A2. Login posterior (misma identidad) → nuevos tokens
-POST {{api}}/auth/login
-Content-Type: application/json
-
-{
-  "provider": "phone",
-  "credentials": { "phone": "+5215512345678", "code": "123456" }
-}
 
 ### A3. Perfil: ¿soy nuevo?, mis identidades y mis comercios
 GET {{api}}/auth/me

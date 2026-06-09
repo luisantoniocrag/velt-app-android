@@ -23,7 +23,7 @@ const phoneOtpSchema = z.object({
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Paso previo del login por teléfono: dispara el SMS/WhatsApp con el código (Stytch).
-  // Luego se usa /auth/register o /auth/login con provider:"phone", credentials:{ phone, code }.
+  // Luego se usa /auth/verify con provider:"phone", credentials:{ phone, code }.
   app.post("/auth/phone/otp", async (request, reply) => {
     const parsed = phoneOtpSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -44,9 +44,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(204).send();
   });
 
-  // Self-signup: verifica la identidad y crea el USUARIO (no un comercio). Los comercios se crean
-  // después con POST /merchants.
-  app.post("/auth/register", async (request, reply) => {
+  // Login-or-create: verifica la identidad (OTP/palma) y emite sesión. Si la identidad ya existe
+  // inicia sesión; si no, crea el usuario y la liga. Un solo flujo (no hay sign in vs sign up):
+  // enviar OTP → verify. `userCreated` le dice al cliente si era una cuenta nueva. No crea comercios.
+  app.post("/auth/verify", async (request, reply) => {
     const parsed = credentialAuthSchema.safeParse(request.body);
     if (!parsed.success) {
       throw badRequest(parsed.error.issues.map((i) => i.message).join("; "), "validation_error");
@@ -56,7 +57,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const existing = await findIdentity(identity);
     if (existing) {
-      throw conflict("esa identidad ya está registrada; usa /auth/login", "identity_already_registered");
+      const session = await issueSession(existing.user_id);
+      return reply.code(200).send({ userId: existing.user_id, userCreated: false, ...session });
     }
 
     const { data: user, error: userErr } = await db
@@ -66,7 +68,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .single<UserRow>();
     if (userErr || !user) {
       request.log.error({ err: userErr }, "fallo al crear usuario");
-      throw internal("no se pudo completar el registro");
+      throw internal("no se pudo completar el alta");
     }
 
     const { error: idErr } = await db.from("user_identities").insert({
@@ -76,29 +78,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     });
     if (idErr) {
       request.log.error({ err: idErr }, "fallo al ligar identidad");
-      throw internal("no se pudo completar el registro");
+      throw internal("no se pudo completar el alta");
     }
 
     const session = await issueSession(user.id);
-    return reply.code(201).send({ user: { id: user.id }, ...session });
-  });
-
-  // Login: verifica la identidad y, si está ligada a un usuario, emite sesión.
-  app.post("/auth/login", async (request, reply) => {
-    const parsed = credentialAuthSchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw badRequest(parsed.error.issues.map((i) => i.message).join("; "), "validation_error");
-    }
-
-    const identity = await authenticateWith(parsed.data.provider, parsed.data.credentials, request.log);
-
-    const linked = await findIdentity(identity);
-    if (!linked) {
-      throw unauthorized("identidad no registrada; usa /auth/register", "unknown_identity");
-    }
-
-    const session = await issueSession(linked.user_id);
-    return reply.code(200).send({ userId: linked.user_id, ...session });
+    return reply.code(200).send({ userId: user.id, userCreated: true, ...session });
   });
 
   // Añadir una identidad (p. ej. la palma) a la cuenta ya autenticada.

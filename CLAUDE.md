@@ -226,16 +226,17 @@ ambos pasos invalida el OTP pendiente.
 
 La tabla **`user_identities` `(provider, external_id)` → `user_id`** liga cualquier identidad de
 cualquier proveedor a un usuario (patrón "accounts"): añadir Google = nuevo provider + filas, sin tocar
-login/register. `POST /auth/link` añade una 2ª identidad (p. ej. la palma) a la cuenta logueada;
+`verify`. `POST /auth/link` añade una 2ª identidad (p. ej. la palma) a la cuenta logueada;
 `DELETE /auth/identities/:provider` la quita (no la última → `409`).
 
 **Tokens** (`auth/tokens.ts`): access JWT HS256 corto (15m, **firmado a mano con `node:crypto`**,
 `alg` fijo, compare en tiempo constante, `sub = userId`) + refresh opaco (30d) guardado **hasheado**
 (`sha256`) en `refresh_tokens`, **rotativo y revocable**; reuso de un refresh revocado → revoca toda la familia.
 
-Endpoints `/api/v1/auth/*` (`routes/auth.ts`): `phone/otp` (envía el código), `register` (self-signup:
-verifica palma/teléfono → crea **usuario** + identidad → emite sesión; **no** crea comercio), `login`,
-`link`, `DELETE identities/:provider`, `GET me`, `DELETE me`, `refresh`, `logout`.
+Endpoints `/api/v1/auth/*` (`routes/auth.ts`): `phone/otp` (envía el código), `verify` (**login-or-create**:
+verifica palma/teléfono → si la identidad existe inicia sesión, si no crea **usuario** + identidad;
+devuelve `userCreated`; **no** crea comercio. No hay register/login separados), `link`,
+`DELETE identities/:provider`, `GET me`, `DELETE me`, `refresh`, `logout`.
 `requireAuth` (`auth/middleware.ts`) es el preHandler que exige `Authorization: Bearer` y deja
 `request.userId`. Protege el CRUD de comercios, `withdraw`, `GET /withdrawals/:id` y los `/auth/*` de cuenta.
 

@@ -10,7 +10,7 @@ cuentas de usuario, comercios (CRUD), cobros y retiros.
 | **Producción** | `https://velt-app-android-production.up.railway.app` | `wss://velt-app-android-production.up.railway.app` |
 | Local | `http://10.0.2.2:3000` (emulador → host) | `ws://10.0.2.2:3000` |
 
-- Todos los endpoints REST cuelgan de **`/api/v1`** (p. ej. `…/api/v1/auth/login`).
+- Todos los endpoints REST cuelgan de **`/api/v1`** (p. ej. `…/api/v1/auth/verify`).
 - Los WebSocket cuelgan de **`/ws`** (sin `/api/v1`).
 - Health check: `GET https://…/health` → `{ "ok": true }`.
 
@@ -79,30 +79,23 @@ Content-Type: application/json
 > (devuelve 204 sin enviar nada). Para mensajes reales a tu teléfono, el backend corre con
 > `STYTCH_ENV=live` (plan de pago de Stytch).
 
-### Paso 2 — Verificar código e iniciar sesión
+### Paso 2 — Verificar código (un solo endpoint: login-or-create)
 
-> ⚠️ **El código OTP es de un solo uso.** En cuanto `login` o `register` lo verifica, se invalida.
-> Por eso no puedes "probar login y si falla, register" con el mismo código.
-> **Patrón recomendado: intenta `login` primero.** Es el caso común (usuarios que ya existen) y no
-> gasta un 2º código. Solo si es un usuario nuevo, pides otro OTP y haces `register`.
+No hay "sign in" vs "sign up": **un solo `POST /auth/verify`**. Verifica el código y emite sesión;
+si la identidad no existía, **crea el usuario automáticamente**. Tu app llama siempre lo mismo.
 
-**2a. Login (usuario existente):**
 ```
-POST /api/v1/auth/login
-{ "provider": "phone", "credentials": { "phone": "+523329728994", "code": "576713" } }
+POST /api/v1/auth/verify
+{ "provider": "phone", "credentials": { "phone": "+523329728994", "code": "489100" } }
 ```
-- **200** → `{ "userId", "accessToken", "refreshToken", "expiresIn": 900 }`. Guarda tokens → a Home.
-- **401** `code: "unknown_identity"` → ese teléfono **no está registrado**. Es un usuario nuevo:
-  vuelve al Paso 1 (pide un OTP nuevo) y haz **2b**.
+- **200** → `{ "userId", "userCreated", "accessToken", "refreshToken", "expiresIn": 900 }`.
+  - `userCreated: true` → cuenta **nueva** (recién creada, sin comercios).
+  - `userCreated: false` → **ya existía** (login normal).
+  - En ambos casos guardas los tokens y vas a Home. (`GET /auth/me` te da el detalle de comercios.)
+- **401** `code: "auth_failed"` → código OTP inválido/expirado, o sin OTP pendiente → reintenta
+  (pide otro código en el Paso 1).
 
-**2b. Register (usuario nuevo):**
-```
-POST /api/v1/auth/register
-{ "provider": "phone", "credentials": { "phone": "+523329728994", "code": "<OTP nuevo>" } }
-```
-- **201** → `{ "user": { "id" }, "accessToken", "refreshToken", "expiresIn": 900 }`. Crea **solo el
-  usuario** (sin comercios todavía). Guarda tokens → a Home.
-- **409** `code: "identity_already_registered"` → ya existía; haz login.
+> El mismo endpoint sirve para palma: `{ "provider": "palm", "credentials": { "template": "…" } }`.
 
 ### Paso 3 — Estado de la cuenta (¿nuevo?, ¿qué tengo?)
 ```
@@ -130,7 +123,7 @@ Authorization: Bearer <accessToken>
 { "provider": "palm", "credentials": { "template": "<base64 del sensor>" } }
 ```
 - **201** `{ "linked": true, "provider": "palm" }`. A partir de ahí el usuario también puede
-  loguearse con la palma: `POST /auth/login { "provider": "palm", "credentials": { "template" } }`.
+  entrar con la palma: `POST /auth/verify { "provider": "palm", "credentials": { "template" } }`.
 - **409** `identity_in_use` → esa palma ya es de otra cuenta.
 
 Quitar la palma: `DELETE /api/v1/auth/identities/palm` (Bearer). **409** `cannot_remove_last_identity`
@@ -229,11 +222,9 @@ Decide por **`code`** (estable), no por `message` (texto en español, puede camb
 | HTTP | code | Significado / acción |
 |---|---|---|
 | 401 | `missing_token` / `invalid_token` | refrescar token o re-loguear |
-| 401 | `unknown_identity` | teléfono no registrado → flujo de registro |
-| 401 | `auth_failed` | OTP/palma inválidos → reintentar |
+| 401 | `auth_failed` | OTP/palma inválidos o sin OTP pendiente → reintentar |
 | 401 | `invalid_refresh_token` | sesión muerta → re-login |
-| 409 | `identity_already_registered` | ya existe → login |
-| 409 | `identity_in_use` | esa palma/teléfono es de otra cuenta |
+| 409 | `identity_in_use` | (en `/auth/link`) esa palma/teléfono es de otra cuenta |
 | 409 | `cannot_remove_last_identity` | no puede quitar su única identidad |
 | 409 | `must_withdraw_first` | retira el saldo antes de borrar |
 | 409 | `account_not_custodial` | cuenta externa: no se puede retirar |
@@ -250,7 +241,8 @@ Decide por **`code`** (estable), no por `message` (texto en español, puede camb
 - [ ] Interceptor que, ante **401** de token, llama `/auth/refresh` y reintenta una vez.
 - [ ] Tokens en `EncryptedSharedPreferences` (nunca en `SharedPreferences` plano ni en logs).
 - [ ] Teléfono normalizado a **E.164** antes de enviarlo (con selector de país).
-- [ ] Pantalla OTP: contemplar el caso "login falla con `unknown_identity` → pedir nuevo OTP → register".
+- [ ] Pantalla OTP: una sola llamada `POST /auth/verify` (login-or-create); usa `userCreated` para
+      diferenciar alta nueva vs login si lo necesitas.
 - [ ] Pantalla inicial decidida por `GET /auth/me` (`isNew` y `merchants`).
 - [ ] WebSocket (OkHttp `WebSocket`) para cobros/retiros, con fallback al `GET` de estado.
 

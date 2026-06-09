@@ -49,8 +49,7 @@ Base: `/api/v1`.
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
 | `POST` | `/auth/phone/otp` | — | login por teléfono (paso 1): envía el código por SMS/WhatsApp vía Stytch |
-| `POST` | `/auth/register` | — | self-signup: verifica la identidad (palma → bioserver, o teléfono → OTP), **crea el usuario**, lo liga y devuelve `accessToken`+`refreshToken`. NO crea comercios |
-| `POST` | `/auth/login` | — | verifica la identidad y, si está ligada a un usuario, emite sesión |
+| `POST` | `/auth/verify` | — | **login-or-create**: verifica la identidad (palma → bioserver, o teléfono → OTP) y emite sesión; si no existía, crea el usuario. Devuelve `userId`, `userCreated`, `accessToken`+`refreshToken`. NO crea comercios |
 | `POST` | `/auth/link` | **Bearer** | añade una identidad (p. ej. la palma) al usuario autenticado (`409 identity_in_use` si ya es de otra cuenta) |
 | `DELETE` | `/auth/identities/:provider` | **Bearer** | quita una identidad; `409 cannot_remove_last_identity` si es la única |
 | `GET` | `/auth/me` | **Bearer** | perfil: `{ userId, isNew, identities, merchants }` |
@@ -98,9 +97,11 @@ AuthProvider.authenticate(credentials, ctx) -> { provider, externalId }
    google → externalId = sub      (stub, futuro)
 ```
 
-**Login por teléfono (Stytch OTP).** Dos pasos: `POST /auth/phone/otp { phone, channel? }` envía un
-código (Stytch `otps/{sms|whatsapp}/login_or_create`), y luego `POST /auth/register|login {
-provider:"phone", credentials:{ phone, code } }` lo verifica (`otps/authenticate`) y emite sesión.
+**Login por teléfono (Stytch OTP).** Dos pasos, **un solo endpoint de verificación** (no hay sign
+in vs sign up): `POST /auth/phone/otp { phone, channel? }` envía un código (Stytch
+`otps/{sms|whatsapp}/login_or_create`), y luego `POST /auth/verify { provider:"phone",
+credentials:{ phone, code } }` lo verifica (`otps/authenticate`), inicia sesión si la identidad
+existe o **crea el usuario** si no (devuelve `userCreated`).
 `channel` puede ser `"whatsapp"` (default) o `"sms"`. Requiere `STYTCH_PROJECT_ID` y `STYTCH_SECRET`
 en el `.env` (Stytch Dashboard → API Keys). `STYTCH_ENV=test` usa **números sandbox** (`+10000000000`,
 código `000000`) sin enviar SMS reales; `STYTCH_ENV=live` envía SMS reales (requiere plan de pago).
@@ -119,9 +120,9 @@ cualquier proveedor a un usuario (patrón "accounts"). Añadir Google mañana = 
 revoca toda la familia: detección de robo). `logout` revoca. El access se valida con `alg` fijo HS256
 (no se confía en el `alg` del token) y comparación en tiempo constante.
 
-**Flujo palma**: `POST /auth/register { name, provider:"palm", credentials:{ template } }` →
-el backend llama al bioserver `identify` → `personId` → crea+liga el comerciante → emite sesión.
-Login posterior: `POST /auth/login { provider:"palm", credentials:{ template } }`.
+**Flujo palma**: `POST /auth/verify { provider:"palm", credentials:{ template } }` → el backend llama
+al bioserver `identify` → `personId` → inicia sesión o crea+liga el usuario (login-or-create). También
+se usa `POST /auth/link` para añadir la palma a una cuenta ya logueada.
 
 Endpoints protegidos: usar `Authorization: Bearer <accessToken>` (preHandler `requireMerchantAuth`,
 `src/auth/middleware.ts`, deja `request.merchantId`).
