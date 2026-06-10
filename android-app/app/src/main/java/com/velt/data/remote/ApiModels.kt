@@ -18,17 +18,10 @@ data class LogoutRequest(val refreshToken: String)
 
 // ── Responses ──
 
-data class LoginResponse(
-    val userId: String?,
-    val accessToken: String,
-    val refreshToken: String,
-    val expiresIn: Int? = null
-)
-
-data class UserRef(val id: String)
-
-data class RegisterResponse(
-    val user: UserRef?,
+/** Respuesta de `POST /auth/verify` (login-or-create). `userCreated`=true → cuenta nueva. */
+data class VerifyResponse(
+    val userId: String? = null,
+    val userCreated: Boolean = false,
     val accessToken: String,
     val refreshToken: String,
     val expiresIn: Int? = null

@@ -20,42 +20,20 @@ class AuthRepository(
     suspend fun sendOtp(phoneE164: String, channel: String = "whatsapp"): ApiResult<Unit> =
         safeApiCall { api.sendOtp(OtpRequest(phoneE164, channel)) }
 
-    suspend fun register(phoneE164: String, code: String): ApiResult<Unit> {
-        val res = safeApiCall {
-            api.register(AuthRequest("phone", Credentials(phone = phoneE164, code = code)))
-        }
-        return when (res) {
-            is ApiResult.Success -> {
-                tokenStore.saveSession(res.data.accessToken, res.data.refreshToken, res.data.user?.id)
-                ApiResult.Success(Unit)
-            }
-            is ApiResult.Failure -> res
-            is ApiResult.NetworkError -> res
-        }
-    }
+    /** Verifica OTP (login-or-create). Devuelve `userCreated` (true = cuenta nueva). */
+    suspend fun verifyPhone(phoneE164: String, code: String): ApiResult<Boolean> =
+        verify(AuthRequest("phone", Credentials(phone = phoneE164, code = code)))
 
-    suspend fun loginWithPhone(phoneE164: String, code: String): ApiResult<Unit> {
-        val res = safeApiCall {
-            api.login(AuthRequest("phone", Credentials(phone = phoneE164, code = code)))
-        }
+    /** Verifica con palma (login-or-create). Devuelve `userCreated`. */
+    suspend fun verifyPalm(template: String): ApiResult<Boolean> =
+        verify(AuthRequest("palm", Credentials(template = template)))
+
+    private suspend fun verify(request: AuthRequest): ApiResult<Boolean> {
+        val res = safeApiCall { api.verify(request) }
         return when (res) {
             is ApiResult.Success -> {
                 tokenStore.saveSession(res.data.accessToken, res.data.refreshToken, res.data.userId)
-                ApiResult.Success(Unit)
-            }
-            is ApiResult.Failure -> res
-            is ApiResult.NetworkError -> res
-        }
-    }
-
-    suspend fun loginWithPalm(template: String): ApiResult<Unit> {
-        val res = safeApiCall {
-            api.login(AuthRequest("palm", Credentials(template = template)))
-        }
-        return when (res) {
-            is ApiResult.Success -> {
-                tokenStore.saveSession(res.data.accessToken, res.data.refreshToken, res.data.userId)
-                ApiResult.Success(Unit)
+                ApiResult.Success(res.data.userCreated)
             }
             is ApiResult.Failure -> res
             is ApiResult.NetworkError -> res

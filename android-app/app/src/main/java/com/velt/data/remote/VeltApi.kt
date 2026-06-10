@@ -12,11 +12,8 @@ interface VeltApi {
     @POST("api/v1/auth/phone/otp")
     suspend fun sendOtp(@Body body: OtpRequest): Response<Unit>
 
-    @POST("api/v1/auth/login")
-    suspend fun login(@Body body: AuthRequest): Response<LoginResponse>
-
-    @POST("api/v1/auth/register")
-    suspend fun register(@Body body: AuthRequest): Response<RegisterResponse>
+    @POST("api/v1/auth/verify")
+    suspend fun verify(@Body body: AuthRequest): Response<VerifyResponse>
 
     @POST("api/v1/auth/refresh")
     suspend fun refresh(@Body body: RefreshRequest): Response<RefreshResponse>

@@ -9,11 +9,14 @@ import androidx.lifecycle.viewmodel.initializer
 import com.velt.data.remote.ApiResult
 import com.velt.data.repository.AuthRepository
 
-enum class AuthMode { REGISTER, LOGIN }
+sealed interface VerifyOutcome {
+    /** OTP correcto. [userCreated]=true → cuenta nueva (sigue onboarding); false → ya existía (a Home). */
+    data class Ok(val userCreated: Boolean) : VerifyOutcome
+    data object Error : VerifyOutcome
+}
 
 class OnboardingViewModel(private val repo: AuthRepository) : ViewModel() {
 
-    var authMode: AuthMode = AuthMode.REGISTER
     var phoneE164: String = ""
     var phoneDisplay: String = ""
 
@@ -42,31 +45,24 @@ class OnboardingViewModel(private val repo: AuthRepository) : ViewModel() {
         }
     }
 
-    /** Verifica el OTP haciendo register o login según la intención del usuario. */
-    suspend fun verifyCode(code: String): Boolean {
+    /** Verifica el OTP con el endpoint unificado (login-or-create). */
+    suspend fun verifyCode(code: String): VerifyOutcome {
         clearError()
-        val result = if (authMode == AuthMode.REGISTER) {
-            repo.register(phoneE164, code)
-        } else {
-            repo.loginWithPhone(phoneE164, code)
-        }
-        return when (result) {
-            is ApiResult.Success -> true
+        return when (val result = repo.verifyPhone(phoneE164, code)) {
+            is ApiResult.Success -> VerifyOutcome.Ok(result.data)
             is ApiResult.Failure -> {
                 errorMessage = verifyError(result.code, result.message)
-                false
+                VerifyOutcome.Error
             }
             is ApiResult.NetworkError -> {
                 errorMessage = "Sin conexión. Revisa tu internet e inténtalo de nuevo."
-                false
+                VerifyOutcome.Error
             }
         }
     }
 
     private fun verifyError(code: String?, message: String?): String = when (code) {
-        "auth_failed" -> "Código incorrecto. Revísalo e inténtalo de nuevo."
-        "identity_already_registered" -> "Ya tienes una cuenta con este número. Inicia sesión."
-        "unknown_identity" -> "Este número no está registrado. Crea una cuenta gratis."
+        "auth_failed" -> "Código incorrecto o expirado. Pide uno nuevo e inténtalo de nuevo."
         "validation_error" -> "Datos inválidos."
         else -> message ?: "No se pudo verificar el código."
     }

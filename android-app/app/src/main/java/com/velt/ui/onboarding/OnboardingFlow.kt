@@ -112,8 +112,8 @@ fun OnboardingFlow(onFinish: () -> Unit) {
                 when (current) {
                     ObStep.SPLASH -> SplashScreen(
                         strings, lang, onLang,
-                        onCreate = { vm.authMode = AuthMode.REGISTER; vm.clearError(); proceed(ObStep.PHONE) },
-                        onLogin = { vm.authMode = AuthMode.LOGIN; vm.clearError(); proceed(ObStep.PHONE) }
+                        onCreate = { vm.clearError(); proceed(ObStep.PHONE) },
+                        onLogin = { vm.clearError(); proceed(ObStep.PHONE) }
                     )
                     ObStep.PHONE -> PhoneScreen(
                         strings, lang, onLang,
@@ -135,10 +135,11 @@ fun OnboardingFlow(onFinish: () -> Unit) {
                         onNext = { code ->
                             if (!loading) scope.launch {
                                 loading = true
-                                val ok = vm.verifyCode(code)
+                                val outcome = vm.verifyCode(code)
                                 loading = false
-                                if (ok) {
-                                    if (vm.authMode == AuthMode.LOGIN) onFinish() else step = ObStep.PROFILE
+                                if (outcome is VerifyOutcome.Ok) {
+                                    // Cuenta nueva → sigue el onboarding; existente → directo a Home.
+                                    if (outcome.userCreated) step = ObStep.PROFILE else onFinish()
                                 }
                             }
                         }
