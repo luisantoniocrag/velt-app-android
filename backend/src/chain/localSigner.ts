@@ -1,5 +1,6 @@
 import { createSmartAccountClient } from "permissionless";
 import { toSimpleSmartAccount } from "permissionless/accounts";
+import { createPimlicoClient } from "permissionless/clients/pimlico";
 import { privateKeyToAccount } from "viem/accounts";
 import { http, keccak256, toHex, type Address } from "viem";
 import { config } from "../config.js";
@@ -13,6 +14,13 @@ export class LocalSigner implements Signer {
     address: config.ERC4337_ENTRYPOINT_ADDRESS as Address,
     version: "0.7" as const,
   };
+
+  // Pimlico rejects gas estimation for UserOps without maxFeePerGas/maxPriorityFeePerGas,
+  // so fees must come from pimlico_getUserOperationGasPrice before estimating.
+  private readonly bundlerClient = createPimlicoClient({
+    transport: http(config.ERC4337_BUNDLER_URL),
+    entryPoint: this.entryPoint,
+  });
 
   private ownerFor(subjectId: string) {
     const masterKey = config.LOCAL_SIGNER_MASTER_KEY!; // validado en config.ts cuando SIGNER_BACKEND=local
@@ -58,6 +66,10 @@ export class LocalSigner implements Signer {
       account,
       chain: arcChain,
       bundlerTransport: http(config.ERC4337_BUNDLER_URL),
+      userOperation: {
+        estimateFeesPerGas: async () =>
+          (await this.bundlerClient.getUserOperationGasPrice()).fast,
+      },
     });
 
     const userOpHash = await smartAccountClient.sendUserOperation({
