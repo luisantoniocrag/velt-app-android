@@ -123,6 +123,9 @@ private fun ChargeHeader(vm: ChargeViewModel) {
         Text("Cobrar", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
         vm.merchant?.let { merchant ->
             Text(merchant.name, fontSize = 14.sp, color = Velt.T2)
+            merchant.ensName?.let { ens ->
+                Text(ens, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = Velt.T2)
+            }
         }
     }
 }
