@@ -71,6 +71,17 @@ data class PaymentStatus(
     val payerEnsName: String? = null
 )
 
+/** Depósito de funding vía Blink (`GET /deposits?personId=`). */
+data class Deposit(
+    val depositId: String,
+    val personId: String,
+    val transferId: String? = null,
+    val amount: Double? = null,
+    val chainId: Long? = null,
+    val status: String? = null,
+    val createdAt: String? = null
+)
+
 /** Evento del WS `/ws/payments/:id`: authorizing → held → settled | failed. */
 data class PaymentEvent(
     val type: String,

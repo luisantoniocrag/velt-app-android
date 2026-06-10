@@ -6,6 +6,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /** Capa de webservice: todos los endpoints REST del backend de Velt en un solo lugar. */
 interface VeltApi {
@@ -48,6 +49,9 @@ interface VeltApi {
 
     @GET("api/v1/payments/{id}")
     suspend fun payment(@Path("id") id: String): Response<PaymentStatus>
+
+    @GET("api/v1/deposits")
+    suspend fun deposits(@Query("personId") personId: String): Response<List<Deposit>>
 }
 
 /** Refresh síncrono usado por el [okhttp3.Authenticator] (no puede ser suspend). */

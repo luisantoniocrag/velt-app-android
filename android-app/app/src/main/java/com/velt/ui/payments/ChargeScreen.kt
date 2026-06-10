@@ -70,7 +70,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import org.json.JSONObject
 import java.util.Base64
 
 @Composable
@@ -464,6 +463,7 @@ private fun SettledStep(vm: ChargeViewModel, state: ChargeState.Settled) {
 
 @Composable
 private fun FailedStep(vm: ChargeViewModel, state: ChargeState.Failed) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -483,7 +483,15 @@ private fun FailedStep(vm: ChargeViewModel, state: ChargeState.Failed) {
         Spacer(Modifier.height(8.dp))
         Text(state.reason, fontSize = 14.sp, color = Velt.T2, textAlign = TextAlign.Center)
         Spacer(Modifier.height(32.dp))
-        PrimaryButton(text = "Intentar de nuevo") { vm.reset() }
+        if (state.canFundPayer) {
+            PrimaryButton(text = "Fondear cuenta del pagador") {
+                vm.lastPersonId?.let { openFundingPage(context, it) }
+            }
+            Spacer(Modifier.height(12.dp))
+            GhostButton(text = "Intentar de nuevo") { vm.reset() }
+        } else {
+            PrimaryButton(text = "Intentar de nuevo") { vm.reset() }
+        }
     }
 }
 
@@ -583,10 +591,3 @@ private fun formatUsd(amountCents: Long): String =
 
 private fun shortenHash(hash: String): String =
     if (hash.length <= 14) hash else "${hash.take(8)}…${hash.takeLast(6)}"
-
-private fun extractPersonId(body: String): String? = runCatching {
-    val json = JSONObject(body)
-    val personId = json.optString("personId", "")
-    val subjectId = json.optString("subjectId", "")
-    personId.ifEmpty { subjectId }.ifEmpty { null }
-}.getOrNull()

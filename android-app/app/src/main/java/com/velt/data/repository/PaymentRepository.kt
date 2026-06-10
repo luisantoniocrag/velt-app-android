@@ -4,6 +4,7 @@ import com.velt.data.remote.ApiResult
 import com.velt.data.remote.AuthorizePaymentRequest
 import com.velt.data.remote.ConfirmPaymentResponse
 import com.velt.data.remote.CreateMerchantRequest
+import com.velt.data.remote.Deposit
 import com.velt.data.remote.InitiatePaymentRequest
 import com.velt.data.remote.InitiatePaymentResponse
 import com.velt.data.remote.Merchant
@@ -38,4 +39,7 @@ class PaymentRepository(
         safeApiCall { api.payment(paymentId) }
 
     fun events(wsPath: String): Flow<PaymentEvent> = eventsSocket.events(wsPath)
+
+    suspend fun deposits(personId: String): ApiResult<List<Deposit>> =
+        safeApiCall { api.deposits(personId) }
 }

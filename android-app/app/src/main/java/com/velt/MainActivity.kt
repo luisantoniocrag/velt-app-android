@@ -1,5 +1,6 @@
 package com.velt
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
@@ -25,6 +27,7 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +51,8 @@ import com.velt.ui.LedTestScreen
 import com.velt.ui.PalmValidationScreen
 import com.velt.ui.onboarding.OnboardingFlow
 import com.velt.ui.payments.ChargeScreen
+import com.velt.ui.payments.DepositResult
+import com.velt.ui.payments.parseDepositDeepLink
 import com.velt.ui.theme.AppTheme
 import com.velt.ui.theme.Velt
 import kotlinx.coroutines.launch
@@ -54,17 +60,65 @@ import kotlinx.coroutines.launch
 private enum class Screen { ONBOARDING, HOME, CHARGE, CONFIG, BLUETOOTH, PALM, LED }
 
 class MainActivity : ComponentActivity() {
+    private val depositResult = mutableStateOf<DepositResult?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        depositResult.value = parseDepositDeepLink(intent)
         setContent {
             AppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     AppNavigation(modifier = Modifier.padding(innerPadding))
+                    depositResult.value?.let { result ->
+                        DepositResultDialog(result, onDismiss = { depositResult.value = null })
+                    }
                 }
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        parseDepositDeepLink(intent)?.let { depositResult.value = it }
+    }
+}
+
+@Composable
+private fun DepositResultDialog(result: DepositResult, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Velt.Surf,
+        title = {
+            Text(
+                if (result.ok) "Depósito iniciado ✓" else "Depósito fallido",
+                color = if (result.ok) Velt.T1 else Velt.Red
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    if (result.ok) "Los fondos están en camino a la cuenta del pagador."
+                    else "No se pudo completar el depósito. Inténtalo de nuevo.",
+                    color = Velt.T2
+                )
+                result.transferId?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Transferencia: $it",
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = Velt.T2
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Entendido", color = Velt.Cyan)
+            }
+        }
+    )
 }
 
 @Composable

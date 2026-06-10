@@ -43,6 +43,8 @@ import com.velt.sensor.VeltSensorBioService
 import com.velt.sensor.VeltSensorConfig
 import com.velt.sensor.VeltSensorRepository
 import com.velt.sensor.VeltSensorClient
+import com.velt.ui.payments.extractPersonId
+import com.velt.ui.payments.openFundingPage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -176,6 +178,7 @@ fun PalmValidationScreen(
     var responseBody by remember { mutableStateOf("") }
     var summary by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var recognizedPersonId by remember { mutableStateOf<String?>(null) }
     var attemptKey by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(attemptKey) {
@@ -186,6 +189,7 @@ fun PalmValidationScreen(
         responseBody = ""
         summary = null
         errorMessage = null
+        recognizedPersonId = null
 
         val repo = VeltSensorRepository(
             ctx = context.applicationContext,
@@ -247,6 +251,7 @@ fun PalmValidationScreen(
             httpStatus = code
             responseBody = body
             summary = buildSummary(code, body)
+            recognizedPersonId = if (code == 200) extractPersonId(body) else null
 
             stage = PalmStage.RESULT
         } catch (e: Exception) {
@@ -316,6 +321,15 @@ fun PalmValidationScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
+
+        if (stage == PalmStage.RESULT && recognizedPersonId != null) {
+            Button(
+                onClick = { openFundingPage(context, recognizedPersonId!!) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Fondear cuenta")
             }
         }
 

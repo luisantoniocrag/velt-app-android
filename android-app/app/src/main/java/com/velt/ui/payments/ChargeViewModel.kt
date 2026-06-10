@@ -31,7 +31,7 @@ sealed interface ChargeState {
     ) : ChargeState
 
     data class Settled(val txHash: String?, val payerEnsName: String?) : ChargeState
-    data class Failed(val reason: String) : ChargeState
+    data class Failed(val reason: String, val canFundPayer: Boolean = false) : ChargeState
 }
 
 private const val POLL_INTERVAL_MS = 3_000L
@@ -45,6 +45,8 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
     var amountCents by mutableStateOf(0L)
         private set
     var errorMessage by mutableStateOf<String?>(null)
+        private set
+    var lastPersonId: String? = null
         private set
 
     private var trackingJob: Job? = null
@@ -119,6 +121,7 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
 
     fun authorize(personId: String) {
         val paymentId = currentPaymentId() ?: return
+        lastPersonId = personId
         state = ChargeState.Authorizing(paymentId)
         viewModelScope.launch {
             when (val result = repo.authorize(paymentId, personId)) {
@@ -215,7 +218,10 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
 
     private fun failWith(reason: String) {
         trackingJob?.cancel()
-        state = ChargeState.Failed(readableReason(reason))
+        state = ChargeState.Failed(
+            reason = readableReason(reason),
+            canFundPayer = reason == "insufficient_funds" && lastPersonId != null
+        )
     }
 
     private fun readableReason(reason: String): String = when (reason) {
