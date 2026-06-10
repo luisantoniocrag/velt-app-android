@@ -15,3 +15,4 @@ export const forbidden = (msg: string, code = "forbidden") => new AppError(403, 
 export const notFound = (msg: string, code = "not_found") => new AppError(404, code, msg);
 export const conflict = (msg: string, code = "conflict") => new AppError(409, code, msg);
 export const internal = (msg: string, code = "internal_error") => new AppError(500, code, msg);
+export const unavailable = (msg: string, code = "unavailable") => new AppError(503, code, msg);

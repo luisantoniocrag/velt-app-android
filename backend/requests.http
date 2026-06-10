@@ -162,6 +162,42 @@ Authorization: Bearer {{accessToken}}
 GET {{api}}/withdrawals/{{withdrawalId}}
 Authorization: Bearer {{accessToken}}
 
+### ── Funding del pagador vía Blink (Base 8453, USDC) ──
+### La app Android abre {{host}}/fund?personId=<id> en un Custom Tab; al terminar, la página
+### vuelve a la app con velt://deposit?status=ok|error. Sin BLINK_* en .env → 503.
+
+### B1. Signer de Blink (lo llama el SDK @swype-org/deposit desde la página /fund)
+POST {{api}}/blink/sign-payment
+Content-Type: application/json
+
+{
+  "amount": 50,
+  "chainId": 8453,
+  "address": "0x1a5FdBc891c5D4E6aD68064Ae45D43146D4F9f3a",
+  "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "callbackScheme": null,
+  "url": "https://pay.blink.cash",
+  "version": "v1"
+}
+
+### B2. Contexto de funding (la página lo usa para resolver la smart account del pagador)
+GET {{api}}/deposits/context?personId=abc-123
+
+### B3. Registrar un depósito (lo hace la página con el DepositResult; upsert por transferId)
+POST {{api}}/deposits/record
+Content-Type: application/json
+
+{
+  "personId": "abc-123",
+  "transferId": "tr_demo_001",
+  "status": "completed",
+  "amount": 10,
+  "chainId": 8453
+}
+
+### B4. Historial de depósitos del pagador
+GET {{api}}/deposits?personId=abc-123
+
 ### ── Casos de validación (deben fallar con 4xx) ──
 
 ### amount inválido → 400

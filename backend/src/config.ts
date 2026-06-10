@@ -48,6 +48,11 @@ const baseSchema = z.object({
     .optional(),
   SEPOLIA_RPC_URL: z.string().url().optional(),
 
+  // Blink deposit SDK (payer funding on Base). Optional: without them the Blink routes
+  // answer 503 blink_not_configured and the rest of the server works normally.
+  BLINK_MERCHANT_ID: z.string().min(1).optional(),
+  BLINK_MERCHANT_PRIVATE_KEY: z.string().min(1).optional(),
+
   // Stytch (login por teléfono — OTP por SMS/WhatsApp). STYTCH_ENV=test usa números sandbox.
   STYTCH_ENV: z.enum(["test", "live"]).default("test"),
   STYTCH_PROJECT_ID: z.string().min(1).optional(),

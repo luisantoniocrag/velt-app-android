@@ -71,6 +71,16 @@ export interface WithdrawalRow {
   updated_at: string;
 }
 
+export interface DepositRow {
+  id: string;
+  person_id: string;
+  transfer_id: string;
+  amount: string | number; // numeric → suele llegar como string desde PostgREST
+  chain_id: number;
+  status: string;
+  created_at: string;
+}
+
 export interface UserIdentityRow {
   id: string;
   user_id: string;

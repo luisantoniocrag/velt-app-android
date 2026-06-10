@@ -115,6 +115,21 @@ create trigger withdrawals_set_updated_at
   before update on withdrawals
   for each row execute function set_updated_at();
 
+-- 5.4b deposits ────────────────────────────────────────────────
+-- Payer funding via Blink (destination = payer smart account on Base). Informative in v1:
+-- recorded from the client-side DepositResult, never credits internal balances.
+create table if not exists deposits (
+  id           uuid primary key default gen_random_uuid(),
+  person_id    text not null,
+  transfer_id  text not null unique,        -- Blink transfer.id (upsert key)
+  amount       numeric(18, 6) not null,     -- USD amount requested
+  chain_id     bigint not null,
+  status       text not null,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists deposits_person_idx on deposits (person_id);
+
 -- 5.5 user_identities ──────────────────────────────────────────
 -- Identidad de auth ligada a un USUARIO (no a un comercio). (provider, external_id) único: una
 -- misma palma/teléfono no puede pertenecer a dos usuarios. Un usuario puede tener varias.
