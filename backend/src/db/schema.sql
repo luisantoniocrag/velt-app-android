@@ -45,18 +45,32 @@ create table if not exists velt_users (
 create unique index if not exists velt_users_person_id_idx on velt_users (person_id);
 
 -- 5.3 payment_requests ─────────────────────────────────────────
+-- Escrow flow: pending → authorizing → held → settled | failed.
+-- escrow_tx_hash = hold UserOp; release_tx_hash = release UserOp (tx_hash is its legacy alias);
+-- release_after = when the escrow becomes releasable without merchant confirmation.
 create table if not exists payment_requests (
   id                uuid primary key default gen_random_uuid(),
   merchant_id       uuid not null references merchants (id),
   amount            numeric(18, 6) not null,          -- USDC, 6 decimales
   status            text not null default 'pending'
-                      check (status in ('pending', 'authorizing', 'settled', 'failed')),
+                      check (status in ('pending', 'authorizing', 'held', 'settled', 'failed')),
   payer_person_id   text,
   payer_user_id     uuid references velt_users (id),
   tx_hash           text,
+  escrow_tx_hash    text,
+  release_tx_hash   text,
+  release_after     timestamptz,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
+
+-- For tables created before the escrow flow (idempotent).
+alter table payment_requests add column if not exists escrow_tx_hash  text;
+alter table payment_requests add column if not exists release_tx_hash text;
+alter table payment_requests add column if not exists release_after   timestamptz;
+alter table payment_requests drop constraint if exists payment_requests_status_check;
+alter table payment_requests add constraint payment_requests_status_check
+  check (status in ('pending', 'authorizing', 'held', 'settled', 'failed'));
 
 create index if not exists payment_requests_status_idx on payment_requests (status);
 

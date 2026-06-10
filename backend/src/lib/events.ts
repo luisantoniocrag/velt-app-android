@@ -16,6 +16,7 @@ export const withdrawalChannel = (id: string): string => `withdrawal:${id}`;
 
 export type PaymentEvent =
   | { type: "authorizing"; paymentId: string }
+  | { type: "held"; paymentId: string; escrowTxHash: string; releaseAfter: string }
   | { type: "settled"; paymentId: string; txHash: string; payerPersonId: string }
   | { type: "failed"; paymentId: string; reason: string };
 

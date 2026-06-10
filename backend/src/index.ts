@@ -4,7 +4,7 @@ import { config } from "./config.js";
 import { AppError } from "./lib/errors.js";
 import { authRoutes } from "./routes/auth.js";
 import { merchantRoutes } from "./routes/merchants.js";
-import { paymentRoutes } from "./routes/payments.js";
+import { paymentRoutes, startEscrowAutoRelease } from "./routes/payments.js";
 import { paymentWsRoutes } from "./ws/payments.js";
 import { withdrawalWsRoutes } from "./ws/withdrawals.js";
 
@@ -50,6 +50,8 @@ async function main(): Promise<void> {
   });
 
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
+
+  startEscrowAutoRelease(app.log);
 }
 
 main().catch((err) => {

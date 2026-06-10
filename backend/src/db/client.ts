@@ -16,7 +16,7 @@ export const db: SupabaseClient = createClient(
 );
 
 // Tipos de fila (espejo de schema.sql).
-export type PaymentStatus = "pending" | "authorizing" | "settled" | "failed";
+export type PaymentStatus = "pending" | "authorizing" | "held" | "settled" | "failed";
 export type WithdrawalStatus = "pending" | "processing" | "settled" | "failed";
 
 export interface UserRow {
@@ -50,6 +50,9 @@ export interface PaymentRequestRow {
   payer_person_id: string | null;
   payer_user_id: string | null;
   tx_hash: string | null;
+  escrow_tx_hash: string | null;
+  release_tx_hash: string | null;
+  release_after: string | null;
   created_at: string;
   updated_at: string;
 }

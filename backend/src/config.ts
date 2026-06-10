@@ -15,6 +15,14 @@ const baseSchema = z.object({
   ERC4337_BUNDLER_URL: z.string().url(),
   ERC4337_ENTRYPOINT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "dirección 0x inválida"),
 
+  // Conditional escrow (contracts/VeltEscrow.sol). Address is known only after deploying
+  // (scripts/deploy-escrow.ts), so it stays optional: settlement throws if missing, boot does not.
+  ESCROW_CONTRACT_ADDRESS: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "dirección 0x inválida")
+    .optional(),
+  ESCROW_RELEASE_DELAY_SECONDS: z.coerce.number().int().positive().default(300),
+
   SIGNER_BACKEND: SignerBackend.default("local"),
   LOCAL_SIGNER_MASTER_KEY: z.string().optional(),
   PRIVY_APP_ID: z.string().optional(),

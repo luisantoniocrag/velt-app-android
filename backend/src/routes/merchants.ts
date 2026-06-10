@@ -68,7 +68,7 @@ const serializeMerchant = (m: MerchantRow) => ({
 });
 
 // Carga un comercio activo y exige que sea del usuario autenticado. 404 si no existe, 403 si es ajeno.
-async function loadOwnedMerchant(userId: string, merchantId: string): Promise<MerchantRow> {
+export async function loadOwnedMerchant(userId: string, merchantId: string): Promise<MerchantRow> {
   if (!uuid.safeParse(merchantId).success) throw badRequest("id de comercio inválido", "validation_error");
 
   const { data } = await db

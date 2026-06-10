@@ -34,6 +34,14 @@ export function encodeUsdcTransfer(to: Address, amountUsdc: bigint): `0x${string
   });
 }
 
+export function encodeUsdcApprove(spender: Address, amountUsdc: bigint): `0x${string}` {
+  return encodeFunctionData({
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [spender, amountUsdc],
+  });
+}
+
 export function getUsdcBalance(address: Address): Promise<bigint> {
   return publicClient.readContract({
     abi: erc20Abi,

@@ -117,8 +117,10 @@ Content-Type: application/json
 
 ### 3. (en otra terminal) abrir el WebSocket ANTES de autorizar:
 ###   wscat -c ws://localhost:3000/ws/payments/<paymentId>
+###   Eventos esperados: authorizing → held (escrowTxHash, releaseAfter) → settled | failed
 
-### 4. Autorizar con el personId resuelto por el bioserver
+### 4. Autorizar con el personId resuelto por el bioserver → 202; el pago queda "held"
+###    (USDC del pagador retenido en el escrow, NO transferido aún al comercio)
 POST {{api}}/payments/authorize
 Content-Type: application/json
 
@@ -127,7 +129,13 @@ Content-Type: application/json
   "personId": "abc-123"
 }
 
-### 6. Consultar estado final (fallback del WS)
+### 5. Confirmar la entrega (dueño del comercio) → 202; el operator libera el escrow → settled.
+###    Si NO se confirma, el auto-release lo libera solo al vencer releaseAfter (default 5 min).
+###    Estado != held → 409 invalid_state.
+POST {{api}}/payments/{{paymentId}}/confirm
+Authorization: Bearer {{accessToken}}
+
+### 6. Consultar estado final (fallback del WS) — incluye escrowTxHash / releaseTxHash / releaseAfter
 GET {{api}}/payments/{{paymentId}}
 
 ### ── Retiro de fondos del comerciante (asíncrono, igual que un pago) ──

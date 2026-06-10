@@ -3,7 +3,7 @@ import { toSimpleSmartAccount } from "permissionless/accounts";
 import { privateKeyToAccount } from "viem/accounts";
 import { http, keccak256, toHex, type Address } from "viem";
 import { config } from "../config.js";
-import type { Signer } from "./signer.js";
+import type { ChainCall, Signer } from "./signer.js";
 import { arcChain, publicClient, USDC_ADDRESS, encodeUsdcTransfer } from "./usdc.js";
 
 // Owner determinista por subject: ownerPrivKey = keccak256("<masterKey>:<subjectId>").
@@ -45,6 +45,13 @@ export class LocalSigner implements Signer {
     to: string;
     amountUsdc: bigint;
   }): Promise<{ txHash: string }> {
+    return this.signAndSendCalls({
+      from: params.from,
+      calls: [{ to: USDC_ADDRESS, data: encodeUsdcTransfer(params.to as Address, params.amountUsdc) }],
+    });
+  }
+
+  async signAndSendCalls(params: { from: string; calls: ChainCall[] }): Promise<{ txHash: string }> {
     const account = await this.accountForAddress(params.from);
 
     const smartAccountClient = createSmartAccountClient({
@@ -53,13 +60,16 @@ export class LocalSigner implements Signer {
       bundlerTransport: http(config.ERC4337_BUNDLER_URL),
     });
 
-    const txHash = await smartAccountClient.sendTransaction({
-      to: USDC_ADDRESS,
-      data: encodeUsdcTransfer(params.to as Address, params.amountUsdc),
-      value: 0n,
+    const userOpHash = await smartAccountClient.sendUserOperation({
+      calls: params.calls.map((call) => ({
+        to: call.to as Address,
+        data: call.data,
+        value: call.value ?? 0n,
+      })),
     });
+    const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: userOpHash });
 
-    return { txHash };
+    return { txHash: receipt.receipt.transactionHash };
   }
 
   private async accountForAddress(address: string) {

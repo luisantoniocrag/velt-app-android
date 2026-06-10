@@ -1,4 +1,4 @@
-import type { Signer } from "./signer.js";
+import type { ChainCall, Signer } from "./signer.js";
 
 // STUB (Enfoque B, producción): firma remota vía Turnkey. Ver README.md.
 export class TurnkeySigner implements Signer {
@@ -11,6 +11,10 @@ export class TurnkeySigner implements Signer {
     to: string;
     amountUsdc: bigint;
   }): Promise<{ txHash: string }> {
+    throw new Error("TurnkeySigner not implemented — usa SIGNER_BACKEND=local (ver README)");
+  }
+
+  async signAndSendCalls(_params: { from: string; calls: ChainCall[] }): Promise<{ txHash: string }> {
     throw new Error("TurnkeySigner not implemented — usa SIGNER_BACKEND=local (ver README)");
   }
 }
