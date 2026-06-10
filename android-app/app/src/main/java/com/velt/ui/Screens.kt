@@ -1,5 +1,6 @@
 package com.velt.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,8 +44,12 @@ import com.velt.sensor.VeltSensorBioService
 import com.velt.sensor.VeltSensorConfig
 import com.velt.sensor.VeltSensorRepository
 import com.velt.sensor.VeltSensorClient
+import com.velt.ui.onboarding.GhostButton
+import com.velt.ui.onboarding.PrimaryButton
+import com.velt.ui.payments.VeltWordmark
 import com.velt.ui.payments.extractPersonId
 import com.velt.ui.payments.openFundingPage
+import com.velt.ui.theme.Velt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -59,50 +64,30 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Velt.Bg)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "Velt",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
+        Icon(
+            painterResource(R.drawable.ic_palm_icon),
+            contentDescription = null,
+            tint = Velt.Cyan,
+            modifier = Modifier.size(48.dp)
         )
+        Spacer(Modifier.height(12.dp))
+        VeltWordmark(fontSize = 40)
         Text(
             text = "Cobra con la palma de la mano",
             fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Velt.T2,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 40.dp)
         )
 
-        Button(
-            onClick = onChargeClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-        ) {
-            Icon(
-                painterResource(R.drawable.ic_palm_icon),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(Modifier.size(12.dp))
-            Text("Cobrar", fontSize = 18.sp)
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        OutlinedButton(
-            onClick = onConfigClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-        ) {
-            Icon(Icons.Filled.Settings, contentDescription = null)
-            Spacer(Modifier.size(12.dp))
-            Text("Configuración", fontSize = 18.sp)
-        }
+        PrimaryButton(text = "Cobrar", onClick = onChargeClick)
+        Spacer(Modifier.height(10.dp))
+        GhostButton(text = "Configuración", onClick = onConfigClick)
     }
 }
 
