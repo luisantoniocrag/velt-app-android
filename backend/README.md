@@ -4,6 +4,9 @@ El "cerebro" de Velt: recibe un `personId` resuelto por el bioserver, lo mapea a
 **smart account** (ERC-4337) en la blockchain **Arc** (Circle) y ejecuta una transferencia
 de **USDC** al comerciante. Sin UI, sin matching biométrico (eso lo hace el bioserver externo).
 
+> Mapa completo de flujos, conceptos (usuario vs pagador vs comercio) y limitaciones de la v1:
+> [`FLOWS.md`](FLOWS.md).
+
 ## Stack
 
 Node 20 · TypeScript (strict) · **Fastify** · `@fastify/websocket` · **Supabase** (PostgreSQL) ·
