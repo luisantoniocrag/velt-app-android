@@ -5,6 +5,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 /** Capa de webservice: todos los endpoints REST del backend de Velt en un solo lugar. */
 interface VeltApi {
@@ -29,6 +30,24 @@ interface VeltApi {
 
     @GET("api/v1/merchants")
     suspend fun merchants(): Response<List<Merchant>>
+
+    @POST("api/v1/merchants")
+    suspend fun createMerchant(@Body body: CreateMerchantRequest): Response<Merchant>
+
+    @GET("api/v1/merchants/{id}")
+    suspend fun merchant(@Path("id") id: String): Response<Merchant>
+
+    @POST("api/v1/payments/initiate")
+    suspend fun initiatePayment(@Body body: InitiatePaymentRequest): Response<InitiatePaymentResponse>
+
+    @POST("api/v1/payments/authorize")
+    suspend fun authorizePayment(@Body body: AuthorizePaymentRequest): Response<Unit>
+
+    @POST("api/v1/payments/{id}/confirm")
+    suspend fun confirmPayment(@Path("id") id: String): Response<ConfirmPaymentResponse>
+
+    @GET("api/v1/payments/{id}")
+    suspend fun payment(@Path("id") id: String): Response<PaymentStatus>
 }
 
 /** Refresh síncrono usado por el [okhttp3.Authenticator] (no puede ser suspend). */

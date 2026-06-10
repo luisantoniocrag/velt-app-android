@@ -16,6 +16,12 @@ data class RefreshRequest(val refreshToken: String)
 
 data class LogoutRequest(val refreshToken: String)
 
+data class CreateMerchantRequest(val name: String)
+
+data class InitiatePaymentRequest(val merchantId: String, val amount: Double)
+
+data class AuthorizePaymentRequest(val paymentId: String, val personId: String)
+
 // ── Responses ──
 
 /** Respuesta de `POST /auth/verify` (login-or-create). `userCreated`=true → cuenta nueva. */
@@ -40,7 +46,41 @@ data class Merchant(
     val name: String,
     val smartAccountAddress: String? = null,
     val custodial: Boolean? = null,
-    val usdcBalance: String? = null
+    val usdcBalance: String? = null,
+    val ensName: String? = null
+)
+
+data class InitiatePaymentResponse(
+    val paymentId: String,
+    val status: String,
+    val wsUrl: String
+)
+
+data class ConfirmPaymentResponse(val paymentId: String, val status: String)
+
+/** Estado completo de un pago (`GET /payments/:id`) — fallback cuando el WS se cae. */
+data class PaymentStatus(
+    val paymentId: String,
+    val status: String,
+    val amount: Double? = null,
+    val txHash: String? = null,
+    val escrowTxHash: String? = null,
+    val releaseTxHash: String? = null,
+    val releaseAfter: String? = null,
+    val payerPersonId: String? = null,
+    val payerEnsName: String? = null
+)
+
+/** Evento del WS `/ws/payments/:id`: authorizing → held → settled | failed. */
+data class PaymentEvent(
+    val type: String,
+    val paymentId: String? = null,
+    val escrowTxHash: String? = null,
+    val releaseAfter: String? = null,
+    val txHash: String? = null,
+    val payerPersonId: String? = null,
+    val payerEnsName: String? = null,
+    val reason: String? = null
 )
 
 data class MeResponse(

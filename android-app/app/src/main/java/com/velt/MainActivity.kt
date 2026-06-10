@@ -46,11 +46,12 @@ import com.velt.ui.HomeScreen
 import com.velt.ui.LedTestScreen
 import com.velt.ui.PalmValidationScreen
 import com.velt.ui.onboarding.OnboardingFlow
+import com.velt.ui.payments.ChargeScreen
 import com.velt.ui.theme.AppTheme
 import com.velt.ui.theme.Velt
 import kotlinx.coroutines.launch
 
-private enum class Screen { ONBOARDING, HOME, CONFIG, BLUETOOTH, PALM, LED }
+private enum class Screen { ONBOARDING, HOME, CHARGE, CONFIG, BLUETOOTH, PALM, LED }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -132,7 +133,12 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
                     onFinish = { screen = Screen.HOME }
                 )
                 Screen.HOME -> HomeScreen(
+                    onChargeClick = { navigateWithBtPermissions(Screen.CHARGE) },
                     onConfigClick = { screen = Screen.CONFIG }
+                )
+                Screen.CHARGE -> ChargeScreen(
+                    deviceAddress = selectedAddress,
+                    onBack = { screen = Screen.HOME }
                 )
                 Screen.CONFIG -> ConfigMenuScreen(
                     selectedDeviceName = selectedName,

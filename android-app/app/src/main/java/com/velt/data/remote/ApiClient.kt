@@ -9,9 +9,12 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
+/** Resultado del cableado HTTP: la API Retrofit más el cliente OkHttp (reusado por el WebSocket). */
+class VeltBackend(val api: VeltApi, val httpClient: OkHttpClient, val baseUrl: String)
+
 object ApiClient {
 
-    fun create(baseUrl: String, tokenStore: TokenStore, debug: Boolean): VeltApi {
+    fun create(baseUrl: String, tokenStore: TokenStore, debug: Boolean): VeltBackend {
         val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         val logging = HttpLoggingInterceptor().apply {
             level = if (debug) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
@@ -40,11 +43,13 @@ object ApiClient {
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
-        return Retrofit.Builder()
+        val api = Retrofit.Builder()
             .baseUrl(normalizedUrl)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(VeltApi::class.java)
+
+        return VeltBackend(api, client, normalizedUrl)
     }
 }

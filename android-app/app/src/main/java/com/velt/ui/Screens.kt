@@ -51,6 +51,7 @@ import java.util.Base64
 
 @Composable
 fun HomeScreen(
+    onChargeClick: () -> Unit,
     onConfigClick: () -> Unit
 ) {
     Column(
@@ -66,12 +67,29 @@ fun HomeScreen(
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "App principal (en construcción)",
+            text = "Cobra con la palma de la mano",
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 40.dp)
         )
+
+        Button(
+            onClick = onChargeClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_palm_icon),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.size(12.dp))
+            Text("Cobrar", fontSize = 18.sp)
+        }
+
+        Spacer(Modifier.height(16.dp))
 
         OutlinedButton(
             onClick = onConfigClick,
