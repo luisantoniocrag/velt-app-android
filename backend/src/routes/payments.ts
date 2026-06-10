@@ -15,6 +15,7 @@ import { USDC_ADDRESS, USDC_DECIMALS, encodeUsdcApprove } from "../chain/usdc.js
 import { escrowAddress, encodeEscrowHold, encodeEscrowRelease } from "../chain/escrow.js";
 import { classifyFailure } from "../chain/failures.js";
 import { requireAuth } from "../auth/middleware.js";
+import { registerPayerEns } from "../ens/registrar.js";
 import { loadOwnedMerchant } from "./merchants.js";
 
 const uuid = z.string().uuid();
@@ -155,6 +156,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
       releaseTxHash: data.release_tx_hash,
       releaseAfter: data.release_after,
       payerPersonId: data.payer_person_id,
+      payerEnsName: await payerEnsNameFor(data.payer_user_id),
     });
   });
 }
@@ -252,7 +254,20 @@ async function ensureVeltUser(
     log.error({ err: error }, "fallo al crear velt_user");
     throw new Error("no se pudo crear la cuenta del usuario");
   }
+
+  void registerPayerEns(data, log);
+
   return data;
+}
+
+async function payerEnsNameFor(payerUserId: string | null): Promise<string | null> {
+  if (!payerUserId) return null;
+  const { data } = await db
+    .from("velt_users")
+    .select("ens_name")
+    .eq("id", payerUserId)
+    .maybeSingle<Pick<VeltUserRow, "ens_name">>();
+  return data?.ens_name ?? null;
 }
 
 // In-process guard: /confirm and the auto-release sweep can race over the same payment.
@@ -291,6 +306,7 @@ async function releasePayment(args: {
       paymentId,
       txHash,
       payerPersonId: payment.payer_person_id ?? "",
+      payerEnsName: await payerEnsNameFor(payment.payer_user_id),
     });
   } catch (err) {
     log.error({ err, paymentId }, `release fallido: ${classifyFailure(err)}`);

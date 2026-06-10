@@ -31,6 +31,7 @@ export interface MerchantRow {
   smart_account_address: string;
   custodial: boolean; // true → cuenta derivada por el backend (puede retirar)
   owner_user_id: string | null;
+  ens_name: string | null;
   deleted_at: string | null;
   created_at: string;
 }
@@ -39,6 +40,7 @@ export interface VeltUserRow {
   id: string;
   person_id: string;
   smart_account_address: string;
+  ens_name: string | null;
   created_at: string;
 }
 

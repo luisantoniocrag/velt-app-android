@@ -31,6 +31,8 @@ alter table merchants add column if not exists custodial boolean not null defaul
 -- Dueño del comercio + soft-delete.
 alter table merchants add column if not exists owner_user_id uuid references users (id);
 alter table merchants add column if not exists deleted_at    timestamptz;
+-- ENS subname on Sepolia (e.g. cafe-brooklyn.velt.eth), registered fire-and-forget.
+alter table merchants add column if not exists ens_name      text;
 create index if not exists merchants_owner_idx on merchants (owner_user_id);
 
 -- 5.2 velt_users ───────────────────────────────────────────────
@@ -43,6 +45,9 @@ create table if not exists velt_users (
 
 -- person_id es la clave de búsqueda en cada pago.
 create unique index if not exists velt_users_person_id_idx on velt_users (person_id);
+
+-- ENS subname on Sepolia (palm-<hash6>.velt.eth), registered fire-and-forget on first payment.
+alter table velt_users add column if not exists ens_name text;
 
 -- 5.3 payment_requests ─────────────────────────────────────────
 -- Escrow flow: pending → authorizing → held → settled | failed.

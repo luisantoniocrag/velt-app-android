@@ -9,6 +9,7 @@ import { getSigner, subjectForMerchant } from "../chain/signer.js";
 import { USDC_DECIMALS, getUsdcBalance } from "../chain/usdc.js";
 import { classifyFailure } from "../chain/failures.js";
 import { requireAuth } from "../auth/middleware.js";
+import { registerMerchantEns } from "../ens/registrar.js";
 
 const uuid = z.string().uuid();
 const evmAddress = z.string().regex(/^0x[a-fA-F0-9]{40}$/, "dirección 0x inválida");
@@ -34,6 +35,7 @@ export async function createMerchant(input: {
   name: string;
   ownerUserId: string;
   smartAccountAddress?: string;
+  log: FastifyBaseLogger;
 }): Promise<MerchantRow> {
   // El id se genera aquí para poder derivar la cuenta antes del insert (smart_account_address es not null).
   const id = randomUUID();
@@ -57,6 +59,9 @@ export async function createMerchant(input: {
     .select()
     .single<MerchantRow>();
   if (error || !data) throw internal("no se pudo crear el comercio");
+
+  void registerMerchantEns(data, input.log);
+
   return data;
 }
 
@@ -65,6 +70,7 @@ const serializeMerchant = (m: MerchantRow) => ({
   name: m.name,
   smartAccountAddress: m.smart_account_address,
   custodial: m.custodial,
+  ensName: m.ens_name,
 });
 
 // Carga un comercio activo y exige que sea del usuario autenticado. 404 si no existe, 403 si es ajeno.
@@ -91,7 +97,11 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
       throw badRequest(parsed.error.issues.map((i) => i.message).join("; "), "validation_error");
     }
 
-    const merchant = await createMerchant({ ...parsed.data, ownerUserId: request.userId! });
+    const merchant = await createMerchant({
+      ...parsed.data,
+      ownerUserId: request.userId!,
+      log: request.log,
+    });
     return reply.code(201).send(serializeMerchant(merchant));
   });
 

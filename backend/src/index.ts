@@ -5,6 +5,7 @@ import { AppError } from "./lib/errors.js";
 import { authRoutes } from "./routes/auth.js";
 import { merchantRoutes } from "./routes/merchants.js";
 import { paymentRoutes, startEscrowAutoRelease } from "./routes/payments.js";
+import { ensEnabled } from "./ens/registrar.js";
 import { paymentWsRoutes } from "./ws/payments.js";
 import { withdrawalWsRoutes } from "./ws/withdrawals.js";
 
@@ -52,6 +53,12 @@ async function main(): Promise<void> {
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
 
   startEscrowAutoRelease(app.log);
+
+  if (!ensEnabled()) {
+    app.log.warn(
+      "ENS deshabilitado: faltan ENS_PARENT_NAME / ENS_OWNER_PRIVATE_KEY / SEPOLIA_RPC_URL",
+    );
+  }
 }
 
 main().catch((err) => {

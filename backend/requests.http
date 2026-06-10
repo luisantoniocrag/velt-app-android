@@ -87,7 +87,8 @@ Authorization: Bearer {{accessToken}}
 GET {{api}}/merchants
 Authorization: Bearer {{accessToken}}
 
-### M3. Ver un comercio (incluye usdcBalance on-chain)
+### M3. Ver un comercio (incluye usdcBalance on-chain y ensName — subname en Sepolia,
+###     se registra en background al crear el comercio; null hasta que confirme)
 GET {{api}}/merchants/{{merchantId}}
 Authorization: Bearer {{accessToken}}
 

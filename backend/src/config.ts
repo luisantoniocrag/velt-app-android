@@ -39,6 +39,15 @@ const baseSchema = z.object({
   BIOSERVER_CLIENT_ID: z.string().min(1),
   BIOSERVER_SHARED_SECRET: z.string().min(1),
 
+  // ENS subnames on Sepolia (NameWrapper). All optional: if any is missing the feature is
+  // disabled with a boot warning, never blocking the core payment flow.
+  ENS_PARENT_NAME: z.string().min(1).optional(),
+  ENS_OWNER_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{64}$/, "llave privada 0x inválida")
+    .optional(),
+  SEPOLIA_RPC_URL: z.string().url().optional(),
+
   // Stytch (login por teléfono — OTP por SMS/WhatsApp). STYTCH_ENV=test usa números sandbox.
   STYTCH_ENV: z.enum(["test", "live"]).default("test"),
   STYTCH_PROJECT_ID: z.string().min(1).optional(),
