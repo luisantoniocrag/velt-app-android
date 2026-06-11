@@ -694,7 +694,7 @@ fun VeltWordmark(fontSize: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MerchantPill(name: String) {
+internal fun MerchantPill(name: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -710,7 +710,7 @@ private fun MerchantPill(name: String) {
 }
 
 @Composable
-private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
+internal fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text.uppercase(),
         fontSize = 10.sp,
@@ -721,7 +721,7 @@ private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StatusRow(color: Color, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+internal fun StatusRow(color: Color, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -784,7 +784,7 @@ private fun PayerCard(ensName: String) {
 }
 
 @Composable
-private fun ResultGlow(color: Color) {
+internal fun ResultGlow(color: Color) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -798,7 +798,7 @@ private fun ResultGlow(color: Color) {
 }
 
 @Composable
-private fun ResultWaves(color: Color) {
+internal fun ResultWaves(color: Color) {
     val waves = listOf(0L to 0.8f, 200L to 0.5f, 400L to 0.25f)
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         waves.forEach { (delayMs, alpha) ->
@@ -834,7 +834,7 @@ private fun RedButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun CancelTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun CancelTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Text(
         text,
         fontSize = 13.sp,
@@ -849,7 +849,7 @@ private fun CancelTextButton(text: String, onClick: () -> Unit, modifier: Modifi
 }
 
 @Composable
-private fun CenteredSpinner(message: String) {
+internal fun CenteredSpinner(message: String) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -900,7 +900,7 @@ private fun CreateMerchantStep(vm: ChargeViewModel) {
 }
 
 @Composable
-private fun CopyableHash(label: String, hash: String) {
+internal fun CopyableHash(label: String, hash: String) {
     val clipboard = LocalClipboardManager.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -946,8 +946,8 @@ private fun remainingUntil(iso: String): Long = runCatching {
     (Instant.parse(iso).toEpochMilli() - System.currentTimeMillis()).coerceAtLeast(0L)
 }.getOrDefault(0L)
 
-private fun formatUsd(amountCents: Long): String =
+internal fun formatUsd(amountCents: Long): String =
     "$%,d.%02d".format(amountCents / 100, amountCents % 100)
 
-private fun shortenHash(hash: String): String =
+internal fun shortenHash(hash: String): String =
     if (hash.length <= 14) hash else "${hash.take(8)}…${hash.takeLast(6)}"

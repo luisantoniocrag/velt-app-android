@@ -59,6 +59,7 @@ import java.util.Base64
 @Composable
 fun HomeScreen(
     onChargeClick: () -> Unit,
+    onWithdrawClick: () -> Unit,
     onConfigClick: () -> Unit
 ) {
     Column(
@@ -86,6 +87,8 @@ fun HomeScreen(
         )
 
         PrimaryButton(text = "Cobrar", onClick = onChargeClick)
+        Spacer(Modifier.height(10.dp))
+        GhostButton(text = "Retirar fondos", onClick = onWithdrawClick)
         Spacer(Modifier.height(10.dp))
         GhostButton(text = "Configuración", onClick = onConfigClick)
     }

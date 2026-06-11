@@ -11,9 +11,9 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 
 /**
- * Cliente del WebSocket de pagos (`/ws/payments/:id`). Emite los eventos del backend y
- * completa el flow cuando el socket se cierra o falla — el consumidor decide el fallback
- * (poll a `GET /payments/:id`), por eso un fallo NO se propaga como excepción.
+ * Cliente de los WebSockets de eventos (`/ws/payments/:id`, `/ws/withdrawals/:id`). Emite los
+ * eventos del backend y completa el flow cuando el socket se cierra o falla — el consumidor
+ * decide el fallback (poll al GET de estado), por eso un fallo NO se propaga como excepción.
  */
 class PaymentEventsSocket(
     private val httpClient: OkHttpClient,
@@ -25,12 +25,22 @@ class PaymentEventsSocket(
         .replaceFirst("https://", "wss://")
         .replaceFirst("http://", "ws://")
 
-    fun events(wsPath: String): Flow<PaymentEvent> = callbackFlow {
+    fun events(wsPath: String): Flow<PaymentEvent> =
+        eventFlow(wsPath, PaymentEvent::class.java) { it.type }
+
+    fun withdrawalEvents(wsPath: String): Flow<WithdrawalEvent> =
+        eventFlow(wsPath, WithdrawalEvent::class.java) { it.type }
+
+    private fun <T : Any> eventFlow(
+        wsPath: String,
+        clazz: Class<T>,
+        typeOf: (T) -> String?
+    ): Flow<T> = callbackFlow {
         val request = Request.Builder().url(wsBaseUrl + wsPath).build()
         val socket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onMessage(webSocket: WebSocket, text: String) {
-                val event = runCatching { gson.fromJson(text, PaymentEvent::class.java) }.getOrNull()
-                if (event?.type != null) trySend(event)
+                val event = runCatching { gson.fromJson(text, clazz) }.getOrNull()
+                if (event != null && typeOf(event) != null) trySend(event)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {

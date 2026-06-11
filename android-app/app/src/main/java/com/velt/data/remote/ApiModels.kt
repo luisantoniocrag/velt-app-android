@@ -22,6 +22,8 @@ data class InitiatePaymentRequest(val merchantId: String, val amount: Double)
 
 data class AuthorizePaymentRequest(val paymentId: String, val personId: String)
 
+data class WithdrawRequest(val to: String, val amount: Double)
+
 // ── Responses ──
 
 /** Respuesta de `POST /auth/verify` (login-or-create). `userCreated`=true → cuenta nueva. */
@@ -91,6 +93,34 @@ data class PaymentEvent(
     val txHash: String? = null,
     val payerPersonId: String? = null,
     val payerEnsName: String? = null,
+    val reason: String? = null
+)
+
+/** Respuesta 202 de `POST /merchants/:id/withdraw`; el resultado real llega por WS o polling. */
+data class WithdrawResponse(
+    val withdrawalId: String,
+    val status: String,
+    val to: String? = null,
+    val amount: Double? = null,
+    val wsUrl: String
+)
+
+/** Estado completo de un retiro (`GET /withdrawals/:id`) — fallback cuando el WS se cae. */
+data class WithdrawalStatus(
+    val withdrawalId: String,
+    val merchantId: String? = null,
+    val to: String? = null,
+    val amount: Double? = null,
+    val status: String,
+    val txHash: String? = null,
+    val reason: String? = null
+)
+
+/** Evento del WS `/ws/withdrawals/:id`: processing → settled | failed. */
+data class WithdrawalEvent(
+    val type: String,
+    val withdrawalId: String? = null,
+    val txHash: String? = null,
     val reason: String? = null
 )
 

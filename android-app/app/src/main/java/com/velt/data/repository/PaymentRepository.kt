@@ -12,6 +12,10 @@ import com.velt.data.remote.PaymentEvent
 import com.velt.data.remote.PaymentEventsSocket
 import com.velt.data.remote.PaymentStatus
 import com.velt.data.remote.VeltApi
+import com.velt.data.remote.WithdrawRequest
+import com.velt.data.remote.WithdrawResponse
+import com.velt.data.remote.WithdrawalEvent
+import com.velt.data.remote.WithdrawalStatus
 import com.velt.data.remote.safeApiCall
 import kotlinx.coroutines.flow.Flow
 
@@ -39,6 +43,15 @@ class PaymentRepository(
         safeApiCall { api.payment(paymentId) }
 
     fun events(wsPath: String): Flow<PaymentEvent> = eventsSocket.events(wsPath)
+
+    suspend fun withdraw(merchantId: String, to: String, amount: Double): ApiResult<WithdrawResponse> =
+        safeApiCall { api.withdraw(merchantId, WithdrawRequest(to, amount)) }
+
+    suspend fun withdrawalStatus(withdrawalId: String): ApiResult<WithdrawalStatus> =
+        safeApiCall { api.withdrawal(withdrawalId) }
+
+    fun withdrawalEvents(wsPath: String): Flow<WithdrawalEvent> =
+        eventsSocket.withdrawalEvents(wsPath)
 
     suspend fun deposits(personId: String): ApiResult<List<Deposit>> =
         safeApiCall { api.deposits(personId) }
