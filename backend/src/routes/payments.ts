@@ -236,7 +236,11 @@ async function ensureVeltUser(
     .select("*")
     .eq("person_id", personId)
     .maybeSingle<VeltUserRow>();
-  if (existing) return existing;
+  if (existing) {
+    // Backfill: payers created before ENS (or whose registration failed) get a subname too.
+    if (!existing.ens_name) void registerPayerEns(existing, log);
+    return existing;
+  }
 
   const { data, error } = await db
     .from("velt_users")

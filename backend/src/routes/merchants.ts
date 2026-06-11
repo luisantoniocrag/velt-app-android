@@ -111,7 +111,12 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
       .select("*")
       .eq("owner_user_id", request.userId)
       .is("deleted_at", null);
-    return reply.code(200).send((data ?? []).map(serializeMerchant));
+    const merchants = data ?? [];
+    // Backfill: merchants created before ENS (or whose registration failed) get a subname too.
+    for (const m of merchants) {
+      if (!m.ens_name) void registerMerchantEns(m, request.log);
+    }
+    return reply.code(200).send(merchants.map(serializeMerchant));
   });
 
   app.get<{ Params: { id: string } }>(
@@ -119,6 +124,7 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireAuth },
     async (request, reply) => {
       const merchant = await loadOwnedMerchant(request.userId!, request.params.id);
+      if (!merchant.ens_name) void registerMerchantEns(merchant, request.log);
       const balance = await getUsdcBalance(merchant.smart_account_address as Address);
       return reply.code(200).send({
         ...serializeMerchant(merchant),

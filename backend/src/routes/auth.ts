@@ -151,7 +151,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const { data: merchants } = await db
       .from("merchants")
-      .select("id, name, smart_account_address, custodial")
+      .select("id, name, smart_account_address, custodial, ens_name")
       .eq("owner_user_id", request.userId)
       .is("deleted_at", null);
 
@@ -165,6 +165,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         name: m.name,
         smartAccountAddress: m.smart_account_address,
         custodial: m.custodial,
+        ensName: m.ens_name,
       })),
     });
   });

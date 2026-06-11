@@ -101,13 +101,17 @@ export function registerSubname(label: string, owner: Address): Promise<string> 
   return enqueue(() => registerSubnameOnChain(label, owner));
 }
 
-// Fire-and-forget wrappers: never throw, never block the main flow.
+// Fire-and-forget wrappers: never throw, never block the main flow. Callers may fire on
+// every fetch as a backfill for rows without ens_name, so an in-flight guard prevents the
+// same actor from registering twice while its first registration is still running.
+const inFlight = new Set<string>();
 
 export async function registerMerchantEns(
   merchant: Pick<MerchantRow, "id" | "name" | "smart_account_address">,
   log: FastifyBaseLogger,
 ): Promise<void> {
-  if (!ensEnabled()) return;
+  if (!ensEnabled() || inFlight.has(merchant.id)) return;
+  inFlight.add(merchant.id);
   try {
     const ensName = await registerSubname(
       slugify(merchant.name),
@@ -117,6 +121,8 @@ export async function registerMerchantEns(
     log.info({ merchantId: merchant.id, ensName }, "subname ENS registrado");
   } catch (err) {
     log.warn({ err, merchantId: merchant.id }, "fallo al registrar subname ENS del comercio");
+  } finally {
+    inFlight.delete(merchant.id);
   }
 }
 
@@ -124,7 +130,8 @@ export async function registerPayerEns(
   user: Pick<VeltUserRow, "id" | "person_id" | "smart_account_address">,
   log: FastifyBaseLogger,
 ): Promise<void> {
-  if (!ensEnabled()) return;
+  if (!ensEnabled() || inFlight.has(user.id)) return;
+  inFlight.add(user.id);
   try {
     const label = `palm-${keccak256(toHex(user.person_id)).slice(2, 8)}`;
     const ensName = await registerSubname(label, user.smart_account_address as Address);
@@ -132,5 +139,7 @@ export async function registerPayerEns(
     log.info({ veltUserId: user.id, ensName }, "subname ENS registrado");
   } catch (err) {
     log.warn({ err, veltUserId: user.id }, "fallo al registrar subname ENS del pagador");
+  } finally {
+    inFlight.delete(user.id);
   }
 }
