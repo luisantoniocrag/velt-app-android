@@ -16,7 +16,7 @@ data class RefreshRequest(val refreshToken: String)
 
 data class LogoutRequest(val refreshToken: String)
 
-data class CreateMerchantRequest(val name: String)
+data class CreateMerchantRequest(val name: String, val ensLabel: String? = null)
 
 data class InitiatePaymentRequest(val merchantId: String, val amount: Double)
 

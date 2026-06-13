@@ -110,11 +110,11 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
         }
     }
 
-    fun createMerchant(name: String) {
+    fun createMerchant(name: String, ensLabel: String? = null) {
         if (name.isBlank()) return
         errorMessage = null
         viewModelScope.launch {
-            when (val result = repo.createMerchant(name.trim())) {
+            when (val result = repo.createMerchant(name.trim(), ensLabel?.trim())) {
                 is ApiResult.Success -> {
                     merchant = result.data
                     state = ChargeState.EnterAmount

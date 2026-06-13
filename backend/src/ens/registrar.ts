@@ -119,12 +119,14 @@ const inFlight = new Set<string>();
 export async function registerMerchantEns(
   merchant: Pick<MerchantRow, "id" | "name" | "smart_account_address">,
   log: FastifyBaseLogger,
+  labelOverride?: string,
 ): Promise<void> {
   if (!ensEnabled() || inFlight.has(merchant.id)) return;
   inFlight.add(merchant.id);
   try {
+    // labelOverride: el comercio puede elegir su subdominio; si no, se usa el nombre slugificado.
     const ensName = await registerSubname(
-      slugify(merchant.name),
+      slugify(labelOverride ?? merchant.name),
       merchant.smart_account_address as Address,
     );
     await db.from("merchants").update({ ens_name: ensName }).eq("id", merchant.id);

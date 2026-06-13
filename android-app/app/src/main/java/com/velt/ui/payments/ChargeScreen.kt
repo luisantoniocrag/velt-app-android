@@ -989,6 +989,14 @@ internal fun CenteredSpinner(message: String) {
 @Composable
 private fun CreateMerchantStep(vm: ChargeViewModel) {
     var name by remember { mutableStateOf("") }
+    var ensLabel by remember { mutableStateOf("") }
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = Velt.Cyan,
+        unfocusedBorderColor = Velt.Border,
+        focusedTextColor = Velt.T1,
+        unfocusedTextColor = Velt.T1,
+        cursorColor = Velt.Cyan
+    )
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.Center
@@ -1004,14 +1012,22 @@ private fun CreateMerchantStep(vm: ChargeViewModel) {
             onValueChange = { name = it },
             singleLine = true,
             placeholder = { Text(tr("Merchant name", "Nombre del comercio"), color = Velt.T3) },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Velt.Cyan,
-                unfocusedBorderColor = Velt.Border,
-                focusedTextColor = Velt.T1,
-                unfocusedTextColor = Velt.T1,
-                cursorColor = Velt.Cyan
-            ),
+            colors = fieldColors,
             modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = ensLabel,
+            onValueChange = { ensLabel = it },
+            singleLine = true,
+            placeholder = { Text(tr("ENS subdomain (optional)", "Subdominio ENS (opcional)"), color = Velt.T3) },
+            suffix = { Text(".velt.eth", color = Velt.T3, fontSize = 13.sp) },
+            colors = fieldColors,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            tr("Leave empty to use the merchant name.", "Vacío = se usa el nombre del comercio."),
+            fontSize = 11.sp, color = Velt.T3, modifier = Modifier.padding(top = 4.dp)
         )
         vm.errorMessage?.let {
             Spacer(Modifier.height(10.dp))
@@ -1019,7 +1035,7 @@ private fun CreateMerchantStep(vm: ChargeViewModel) {
         }
         Spacer(Modifier.height(20.dp))
         PrimaryButton(text = tr("Create merchant", "Crear comercio"), enabled = name.isNotBlank()) {
-            vm.createMerchant(name)
+            vm.createMerchant(name, ensLabel)
         }
     }
 }

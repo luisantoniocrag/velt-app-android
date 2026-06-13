@@ -26,8 +26,8 @@ class PaymentRepository(
 ) {
     suspend fun merchants(): ApiResult<List<Merchant>> = safeApiCall { api.merchants() }
 
-    suspend fun createMerchant(name: String): ApiResult<Merchant> =
-        safeApiCall { api.createMerchant(CreateMerchantRequest(name)) }
+    suspend fun createMerchant(name: String, ensLabel: String? = null): ApiResult<Merchant> =
+        safeApiCall { api.createMerchant(CreateMerchantRequest(name, ensLabel?.ifBlank { null })) }
 
     suspend fun merchant(id: String): ApiResult<Merchant> = safeApiCall { api.merchant(id) }
 

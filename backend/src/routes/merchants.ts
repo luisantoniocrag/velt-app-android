@@ -19,6 +19,8 @@ const createMerchantSchema = z.object({
   name: z.string().min(1),
   // Opcional: si no se envía, el backend deriva la smart account (ERC-4337) del comerciante.
   smartAccountAddress: evmAddress.optional(),
+  // Opcional: subdominio ENS a usar; si no, se usa el nombre slugificado.
+  ensLabel: z.string().min(1).optional(),
 });
 
 const updateMerchantSchema = z.object({
@@ -38,6 +40,7 @@ export async function createMerchant(input: {
   name: string;
   ownerUserId: string;
   smartAccountAddress?: string;
+  ensLabel?: string;
   log: FastifyBaseLogger;
 }): Promise<MerchantRow> {
   // El id se genera aquí para poder derivar la cuenta antes del insert (smart_account_address es not null).
@@ -63,7 +66,7 @@ export async function createMerchant(input: {
     .single<MerchantRow>();
   if (error || !data) throw internal("no se pudo crear el comercio");
 
-  void registerMerchantEns(data, input.log);
+  void registerMerchantEns(data, input.log, input.ensLabel);
 
   return data;
 }
