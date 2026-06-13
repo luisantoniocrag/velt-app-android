@@ -52,6 +52,7 @@ import com.velt.ui.PalmValidationScreen
 import com.velt.ui.onboarding.OnboardingFlow
 import com.velt.ui.payments.BalanceScreen
 import com.velt.ui.payments.ChargeScreen
+import com.velt.ui.payments.EnrollScreen
 import com.velt.ui.payments.DepositResult
 import com.velt.ui.i18n.tr
 import com.velt.ui.payments.WithdrawScreen
@@ -60,7 +61,7 @@ import com.velt.ui.theme.AppTheme
 import com.velt.ui.theme.Velt
 import kotlinx.coroutines.launch
 
-private enum class Screen { ONBOARDING, HOME, CHARGE, WITHDRAW, BALANCE, CONFIG, BLUETOOTH, PALM, LED }
+private enum class Screen { ONBOARDING, HOME, CHARGE, WITHDRAW, BALANCE, ENROLL, CONFIG, BLUETOOTH, PALM, LED }
 
 class MainActivity : ComponentActivity() {
     private val depositResult = mutableStateOf<DepositResult?>(null)
@@ -204,6 +205,7 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
                     onChargeClick = { navigateWithBtPermissions(Screen.CHARGE) },
                     onWithdrawClick = { screen = Screen.WITHDRAW },
                     onBalanceClick = { navigateWithBtPermissions(Screen.BALANCE) },
+                    onEnrollClick = { navigateWithBtPermissions(Screen.ENROLL) },
                     onConfigClick = { screen = Screen.CONFIG }
                 )
                 Screen.CHARGE -> ChargeScreen(
@@ -214,6 +216,10 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
                     onBack = { screen = Screen.HOME }
                 )
                 Screen.BALANCE -> BalanceScreen(
+                    deviceAddress = selectedAddress,
+                    onBack = { screen = Screen.HOME }
+                )
+                Screen.ENROLL -> EnrollScreen(
                     deviceAddress = selectedAddress,
                     onBack = { screen = Screen.HOME }
                 )

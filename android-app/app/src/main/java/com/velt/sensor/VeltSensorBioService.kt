@@ -74,6 +74,56 @@ object VeltSensorBioService {
         }
     }
 
+    /**
+     * Enrola (da de alta) una palma en el bioserver bajo [personId]. POST /api/subject, firmado
+     * con HMAC. Devuelve (HTTP code, body). El enrollment SÍ pega al bioserver real (no usa el
+     * DEMO_OVERRIDE): si OpenPalm está caído, devolverá el error correspondiente.
+     */
+    suspend fun enrollUser(
+        personId: String,
+        template: String,
+        firstName: String = "Velt",
+        lastName: String = "User",
+        hand: String = "UnknownPalmVeinCapture",
+    ): Pair<Int, String> = withContext(Dispatchers.IO) {
+        val payload = mapOf(
+            "firstName" to firstName,
+            "lastName" to lastName,
+            "personId" to personId,
+            "dob" to "1990-12-25T00:00:00.001Z",
+            "templates" to listOf(
+                mapOf(
+                    "bioLocation" to hand,
+                    "templates" to listOf(
+                        mapOf("type" to "FujitsuRFormat", "template" to template)
+                    )
+                )
+            )
+        )
+        val timestamp = System.currentTimeMillis() / 1000
+        val nonce = ByteArray(36).also { SecureRandom().nextBytes(it) }.toHex()
+        val auth = buildAuthorization(payload, "post", "api/subject", timestamp, nonce)
+        val jsonBody = GsonBuilder().disableHtmlEscaping().create().toJson(payload)
+
+        val req = Request.Builder()
+            .url("${VeltSensorConfig.ENDPOINT}api/subject")
+            .post(jsonBody.toRequestBody(JSON))
+            .addHeader("Authorization", auth)
+            .addHeader("Content-Type", "application/json")
+            .build()
+        try {
+            Log.d(TAG, "🚀 POST ${req.url} (enroll $personId)")
+            client.newCall(req).execute().use { resp ->
+                val body = resp.body?.string().orEmpty()
+                Log.d(TAG, "📡 Enroll bioserver: HTTP ${resp.code} (${body.length} chars)")
+                resp.code to body
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error enrolando: ${e.message}", e)
+            -1 to (e.message ?: "Error de red")
+        }
+    }
+
     private fun buildAuthorization(
         body: Any,
         method: String,

@@ -62,6 +62,7 @@ fun HomeScreen(
     onChargeClick: () -> Unit,
     onWithdrawClick: () -> Unit,
     onBalanceClick: () -> Unit,
+    onEnrollClick: () -> Unit,
     onConfigClick: () -> Unit
 ) {
     Column(
@@ -93,6 +94,8 @@ fun HomeScreen(
         GhostButton(text = tr("Withdraw funds", "Retirar fondos"), onClick = onWithdrawClick)
         Spacer(Modifier.height(10.dp))
         GhostButton(text = tr("Scan to get balance", "Escanear saldo"), onClick = onBalanceClick)
+        Spacer(Modifier.height(10.dp))
+        GhostButton(text = tr("Enroll palm", "Registrar palma"), onClick = onEnrollClick)
         Spacer(Modifier.height(10.dp))
         GhostButton(text = tr("Settings", "Configuración"), onClick = onConfigClick)
     }
