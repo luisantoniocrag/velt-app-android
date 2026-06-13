@@ -45,8 +45,8 @@ class PaymentRepository(
 
     fun events(wsPath: String): Flow<PaymentEvent> = eventsSocket.events(wsPath)
 
-    suspend fun withdraw(merchantId: String, to: String, amount: Double): ApiResult<WithdrawResponse> =
-        safeApiCall { api.withdraw(merchantId, WithdrawRequest(to, amount)) }
+    suspend fun withdraw(merchantId: String, to: String, amount: Double, private: Boolean = false): ApiResult<WithdrawResponse> =
+        safeApiCall { api.withdraw(merchantId, WithdrawRequest(to, amount, private)) }
 
     suspend fun withdrawalStatus(withdrawalId: String): ApiResult<WithdrawalStatus> =
         safeApiCall { api.withdrawal(withdrawalId) }

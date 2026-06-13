@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -83,6 +85,7 @@ fun WithdrawScreen(onBack: () -> Unit) {
 private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
     var address by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
+    var isPrivate by remember { mutableStateOf(false) }
 
     val amount = amountText.toDoubleOrNull() ?: 0.0
     val addressValid = EVM_ADDRESS.matches(address.trim())
@@ -172,6 +175,37 @@ private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
                 fontSize = 12.sp, color = Velt.Amber
             )
         }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Velt.Surf)
+                .border(1.dp, if (isPrivate) Velt.Cyan.copy(alpha = 0.4f) else Velt.Border, RoundedCornerShape(12.dp))
+                .clickable { isPrivate = !isPrivate }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(tr("Private withdrawal", "Retiro privado"), fontSize = 14.sp, color = Velt.T1)
+                Text(
+                    tr("Routed through Unlink — breaks the on-chain link.", "Vía Unlink — rompe el link on-chain."),
+                    fontSize = 11.sp, color = Velt.T2
+                )
+            }
+            Switch(
+                checked = isPrivate,
+                onCheckedChange = { isPrivate = it },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Velt.OnCyan,
+                    checkedTrackColor = Velt.Cyan,
+                    uncheckedThumbColor = Velt.T2,
+                    uncheckedTrackColor = Velt.Card
+                )
+            )
+        }
+
         vm.errorMessage?.let {
             Spacer(Modifier.height(10.dp))
             Text(it, fontSize = 12.sp, color = Velt.Red)
@@ -182,7 +216,7 @@ private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
             text = if (amountValid) tr("Withdraw ${formatUsdc(amount)}", "Retirar ${formatUsdc(amount)}")
             else tr("Withdraw", "Retirar"),
             enabled = canWithdraw
-        ) { vm.startWithdraw(address, amount) }
+        ) { vm.startWithdraw(address, amount, isPrivate) }
         Spacer(Modifier.height(8.dp))
         CancelTextButton(tr("Back", "Volver"), onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(14.dp))

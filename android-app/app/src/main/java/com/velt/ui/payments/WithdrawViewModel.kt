@@ -84,13 +84,13 @@ class WithdrawViewModel(private val repo: PaymentRepository) : ViewModel() {
         }
     }
 
-    fun startWithdraw(to: String, amount: Double) {
+    fun startWithdraw(to: String, amount: Double, private: Boolean = false) {
         val merchantId = merchant?.id ?: return
         if (amount <= 0.0) return
         errorMessage = null
         lastAmount = amount
         viewModelScope.launch {
-            when (val result = repo.withdraw(merchantId, to.trim(), amount)) {
+            when (val result = repo.withdraw(merchantId, to.trim(), amount, private)) {
                 is ApiResult.Success -> {
                     state = WithdrawState.Processing(result.data.withdrawalId)
                     track(result.data.withdrawalId, result.data.wsUrl)

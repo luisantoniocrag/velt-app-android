@@ -22,7 +22,7 @@ data class InitiatePaymentRequest(val merchantId: String, val amount: Double)
 
 data class AuthorizePaymentRequest(val paymentId: String, val personId: String)
 
-data class WithdrawRequest(val to: String, val amount: Double)
+data class WithdrawRequest(val to: String, val amount: Double, val private: Boolean = false)
 
 // ── Responses ──
 
