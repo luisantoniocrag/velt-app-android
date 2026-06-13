@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -131,33 +132,44 @@ fun ChargeScreen(
 
 // ── Pantalla 1 del mockup: cobro con keypad circular ──
 
+private val QUICK_AMOUNTS = listOf(10L, 25L, 50L, 100L)
+
 @Composable
 private fun EnterAmountStep(vm: ChargeViewModel, onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(16.dp))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            VeltWordmark(fontSize = 22)
-            vm.merchant?.let { MerchantPill(it.name) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BackCircle(onBack)
+                Text(tr("Charge", "Cobrar"), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
+            }
+            PalmBadge()
         }
-        vm.merchant?.ensName?.let { ens ->
-            Text(
-                ens,
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                color = Velt.T2,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 6.dp)
-            )
+        vm.merchant?.let { merchant ->
+            Spacer(Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(Modifier.size(5.dp).clip(CircleShape).background(Velt.Green))
+                Text(merchant.name, fontSize = 12.sp, color = Velt.T2)
+                merchant.ensName?.let { ens ->
+                    Text(ens, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Velt.T3)
+                }
+            }
         }
 
         Spacer(Modifier.height(20.dp))
         SectionLabel(tr("Total to charge", "Total a cobrar"), modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(8.dp))
         AmountRow(vm.amountCents, modifier = Modifier.align(Alignment.CenterHorizontally))
+
+        Spacer(Modifier.height(16.dp))
+        QuickAmounts(onPick = vm::addUsdc)
 
         vm.errorMessage?.let {
             Spacer(Modifier.height(8.dp))
@@ -167,7 +179,7 @@ private fun EnterAmountStep(vm: ChargeViewModel, onBack: () -> Unit) {
             )
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
         KeypadSeparator()
 
         CircularKeypad(
@@ -181,9 +193,75 @@ private fun EnterAmountStep(vm: ChargeViewModel, onBack: () -> Unit) {
             else tr("Charge", "Cobrar"),
             enabled = vm.amountCents > 0
         ) { vm.startCharge() }
-        Spacer(Modifier.height(8.dp))
-        CancelTextButton(tr("Back", "Volver"), onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(14.dp))
+    }
+}
+
+@Composable
+private fun BackCircle(onBack: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(Velt.Surf)
+            .border(1.dp, Velt.Border, CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onBack
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = tr("Back", "Atrás"),
+            tint = Velt.T2,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@Composable
+private fun PalmBadge() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Velt.CyanDark)
+            .border(1.dp, Velt.Cyan.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp)
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_palm_icon),
+            contentDescription = null,
+            tint = Velt.Cyan,
+            modifier = Modifier.size(15.dp)
+        )
+        Text("PALM", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Velt.Cyan)
+    }
+}
+
+@Composable
+private fun QuickAmounts(onPick: (Long) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        QUICK_AMOUNTS.forEach { usdc ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Velt.Card)
+                    .border(1.dp, Velt.Border, RoundedCornerShape(12.dp))
+                    .clickable { onPick(usdc) }
+                    .padding(vertical = 11.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("+$usdc", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Velt.T1)
+            }
+        }
     }
 }
 
@@ -207,6 +285,12 @@ private fun AmountRow(amountCents: Long, modifier: Modifier = Modifier) {
             ".$dec",
             fontSize = 32.sp, fontFamily = DmSans, fontWeight = FontWeight.ExtraLight,
             letterSpacing = (-1).sp, color = Velt.Cyan,
+            modifier = Modifier.alignByBaseline()
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "USDC",
+            fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Velt.Cyan,
             modifier = Modifier.alignByBaseline()
         )
         BlinkingCursor()

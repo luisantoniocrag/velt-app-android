@@ -67,6 +67,12 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
         amountCents /= 10
     }
 
+    /** Suma un monto rápido (chips +10, +25, ...). [usdc] en unidades enteras de USDC. */
+    fun addUsdc(usdc: Long) {
+        val next = amountCents + usdc * 100
+        if (next <= 99_999_999) amountCents = next
+    }
+
     fun loadMerchant() {
         state = ChargeState.LoadingMerchant
         errorMessage = null
