@@ -60,6 +60,11 @@ const baseSchema = z.object({
   BLINK_MERCHANT_ID: z.string().min(1).optional(),
   BLINK_MERCHANT_PRIVATE_KEY: z.string().min(1).optional(),
 
+  // Unlink (private withdrawals on arc-testnet). Optional: without it, withdraw private:true
+  // answers 503 unlink_not_configured; normal withdrawals are unaffected.
+  UNLINK_API_KEY: z.string().min(1).optional(),
+  UNLINK_ENVIRONMENT: z.string().default("arc-testnet"),
+
   // Stytch (login por teléfono — OTP por SMS/WhatsApp). STYTCH_ENV=test usa números sandbox.
   STYTCH_ENV: z.enum(["test", "live"]).default("test"),
   STYTCH_PROJECT_ID: z.string().min(1).optional(),

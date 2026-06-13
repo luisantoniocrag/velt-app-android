@@ -3,11 +3,12 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { db, type MerchantRow, type WithdrawalRow } from "../db/client.js";
-import { badRequest, conflict, forbidden, internal, notFound } from "../lib/errors.js";
+import { badRequest, conflict, forbidden, internal, notFound, unavailable } from "../lib/errors.js";
 import { emitWithdrawalEvent } from "../lib/events.js";
 import { getSigner, subjectForMerchant } from "../chain/signer.js";
 import { USDC_DECIMALS, getUsdcBalance } from "../chain/usdc.js";
 import { classifyFailure } from "../chain/failures.js";
+import { unlinkEnabled, privateWithdraw } from "../chain/unlink.js";
 import { requireAuth } from "../auth/middleware.js";
 import { registerMerchantEns } from "../ens/registrar.js";
 
@@ -27,6 +28,8 @@ const updateMerchantSchema = z.object({
 const withdrawSchema = z.object({
   to: evmAddress,
   amount: z.number().positive(),
+  // true → liquidado en privado por el pool de Unlink (rompe el link comercio→destino).
+  private: z.boolean().optional().default(false),
 });
 
 // Crea un comercio derivando su smart account si no trae una externa. Si trae dirección externa →
@@ -186,7 +189,7 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         throw badRequest(parsed.error.issues.map((i) => i.message).join("; "), "validation_error");
       }
-      const { to, amount } = parsed.data;
+      const { to, amount, private: isPrivate } = parsed.data;
 
       // Solo cuentas derivadas por el backend pueden retirar: de una dirección externa (wallet/
       // exchange del comercio) el backend no tiene la llave para firmar.
@@ -196,10 +199,16 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
           "account_not_custodial",
         );
       }
+      if (isPrivate && !unlinkEnabled()) {
+        throw unavailable(
+          "el retiro privado no está configurado (UNLINK_API_KEY)",
+          "unlink_not_configured",
+        );
+      }
 
       const { data: withdrawal, error } = await db
         .from("withdrawals")
-        .insert({ merchant_id: merchant.id, to_address: to, amount, status: "pending" })
+        .insert({ merchant_id: merchant.id, to_address: to, amount, status: "pending", is_private: isPrivate })
         .select()
         .single<WithdrawalRow>();
       if (error || !withdrawal) {
@@ -256,6 +265,7 @@ export async function merchantRoutes(app: FastifyInstance): Promise<void> {
         status: data.status,
         txHash: data.tx_hash,
         reason: data.reason,
+        isPrivate: data.is_private,
       });
     },
   );
@@ -273,6 +283,18 @@ async function processWithdrawal(args: {
   emitWithdrawalEvent({ type: "processing", withdrawalId });
 
   try {
+    // Retiro privado: vía pool de Unlink (deposit con USDC del comercio → withdraw privado).
+    if (withdrawal.is_private) {
+      const { txHash } = await privateWithdraw({
+        merchantId: withdrawal.merchant_id,
+        to: withdrawal.to_address,
+        amount: withdrawal.amount,
+      });
+      await db.from("withdrawals").update({ status: "settled", tx_hash: txHash }).eq("id", withdrawalId);
+      emitWithdrawalEvent({ type: "settled", withdrawalId, txHash });
+      return;
+    }
+
     const signer = await getSigner();
 
     // Rehidrata el mapa address→subject que necesita signAndSendUserOp (firmar en frío fallaría).

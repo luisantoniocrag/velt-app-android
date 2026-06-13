@@ -67,6 +67,7 @@ export interface WithdrawalRow {
   status: WithdrawalStatus;
   tx_hash: string | null;
   reason: string | null;
+  is_private: boolean;
   created_at: string;
   updated_at: string;
 }

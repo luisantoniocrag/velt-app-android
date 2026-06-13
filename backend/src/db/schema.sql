@@ -104,11 +104,15 @@ create table if not exists withdrawals (
                       check (status in ('pending', 'processing', 'settled', 'failed')),
   tx_hash           text,
   reason            text,                             -- motivo del fallo (si status='failed')
+  is_private        boolean not null default false,   -- true → liquidado por el pool privado de Unlink
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
 
 create index if not exists withdrawals_status_idx on withdrawals (status);
+
+-- Para tablas creadas antes del retiro privado (idempotente).
+alter table withdrawals add column if not exists is_private boolean not null default false;
 
 -- Mantener updated_at al día en cada UPDATE.
 create or replace function set_updated_at()
