@@ -61,7 +61,6 @@ private sealed interface EnrollState {
 fun EnrollScreen(deviceAddress: String?, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var name by remember { mutableStateOf("") }
     var state by remember { mutableStateOf<EnrollState>(EnrollState.Idle) }
 
     fun enroll() {
@@ -76,8 +75,11 @@ fun EnrollScreen(deviceAddress: String?, onBack: () -> Unit) {
                 )
                 state = EnrollState.Enrolling
                 val personId = UUID.randomUUID().toString()
-                val first = name.trim().ifEmpty { "Velt" }
-                val (code, body) = VeltSensorBioService.enrollUser(personId, template, firstName = first)
+                // name y lastName: ids aleatorios (el demo no captura datos reales del usuario).
+                val randomId = { UUID.randomUUID().toString().take(8) }
+                val (code, body) = VeltSensorBioService.enrollUser(
+                    personId, template, firstName = randomId(), lastName = randomId(),
+                )
                 state = if (code in 200..299) {
                     EnrollState.Success(personId)
                 } else {
@@ -106,18 +108,6 @@ fun EnrollScreen(deviceAddress: String?, onBack: () -> Unit) {
 
             when (val s = state) {
                 is EnrollState.Idle -> {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        singleLine = true,
-                        placeholder = { Text(tr("Name (optional)", "Nombre (opcional)"), color = Velt.T3) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Velt.Cyan, unfocusedBorderColor = Velt.Border,
-                            focusedTextColor = Velt.T1, unfocusedTextColor = Velt.T1, cursorColor = Velt.Cyan
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(20.dp))
                     PalmCircle(Velt.Cyan, onClick = ::enroll)
                     Spacer(Modifier.height(20.dp))
                     Text(
