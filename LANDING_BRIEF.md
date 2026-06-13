@@ -40,6 +40,7 @@ Hay dos lados:
 | 🖐️ **Tu cuerpo es tu wallet** — nada que sacar ni cargar | 🔓 **Retira tus fondos** cuando quieras, a donde quieras |
 | 🔒 **Biometría segura** — tu palma no se puede copiar ni perder | 📲 **Sin terminal cara** — funciona con el sensor Velt |
 | 🪪 **Identidad verificada** (KYC) — pagos confiables | 📊 **Saldo en tiempo real**, sin esperas |
+| 👁️ **Consulta tu saldo con la palma** — sin teléfono ni app | 🕶️ **Retiro privado** opcional — finanzas confidenciales |
 | 💵 Respaldado en **dólares digitales (USDC)** | 🌎 Pagos digitales sin fricción ni comisiones de tarjeta |
 
 **El gancho emocional:** *olvídate de la cartera, del teléfono, del efectivo. Eres tú quien paga —
@@ -51,13 +52,17 @@ literalmente con tu mano.*
 
 ### Para el cliente — onboarding (se hace una sola vez)
 
+> **Nuevo — el onboarding ahora es "palma primero".** La palma es la entrada principal; el teléfono
+> pasó a ser solo el **método de recuperación** (al final, no al inicio).
+
 1. **Bienvenida** — "El futuro de los pagos está en tus manos."
-2. **Teléfono** — ingresa su número; recibe un código por WhatsApp o SMS.
-3. **Verificación** — escribe el código de 6 dígitos.
-4. **Perfil** — nombre y una **dirección Velt** personalizada (su "usuario").
-5. **Identidad (KYC)** — foto de su documento; se verifica y se borra automáticamente.
-6. **Registro de palma** — coloca la palma en el sensor unas veces para registrarla.
-7. **¡Listo!** — palma registrada, Velt ID creado, wallet activada. A pagar.
+2. **Registro de palma** — coloca la palma en el sensor para registrarla. **Este es el primer paso.**
+3. **Perfil** — nombre y una **dirección Velt** personalizada (p. ej. `tunombre.velt` — es su
+   identidad pública, como un usuario de pago real).
+4. **Identidad (KYC)** — foto de su documento; se verifica y se borra automáticamente.
+5. **Teléfono de recuperación** — ingresa su número y confirma con un código por WhatsApp o SMS.
+   Sirve por si alguna vez necesita recuperar su cuenta.
+6. **¡Listo!** — palma registrada, Velt ID creado, wallet activada. A pagar.
 
 ### El pago en el comercio (el momento mágico)
 
@@ -68,12 +73,26 @@ literalmente con tu mano.*
 5. Ambos ven la **confirmación al instante**.
 
 > Todo el proceso dura segundos. El cliente nunca toca su teléfono.
+>
+> **Detalle nuevo:** al confirmar el pago, la pantalla muestra el **saldo del cliente antes y después**
+> del cobro (cuánto tenía → cuánto le queda). Refuerza la sensación de control y transparencia.
+
+### Escanea tu palma para ver tu saldo (función nueva)
+
+El cliente **no necesita el teléfono ni la app para consultar su dinero**: basta con poner la palma en
+un sensor Velt para ver al instante su **saldo en USDC**, su **dirección Velt** y su **historial de
+pagos**. Tu mano es, literalmente, tu acceso a tu cuenta.
+
+> Buen mensaje para la landing: *"Tu saldo, en la palma de tu mano. Solo escanea."*
 
 ### Para el comercio
 
 - Acepta pagos por palma.
 - Ve su **saldo en tiempo real**.
+- Tiene su propia **dirección Velt** pública (p. ej. `tucafe.velt`) para recibir pagos.
 - **Retira sus fondos** a la cuenta o dirección que prefiera, cuando quiera.
+- **Retiro privado (opcional):** puede retirar de forma **confidencial**, sin que el monto ni el destino
+  queden ligados públicamente a su comercio. Privacidad para sus finanzas.
 
 ---
 
@@ -98,9 +117,11 @@ literalmente con tu mano.*
   1. **Hero** con CTA ("Únete" / "Descarga la app" / "Solicita acceso").
   2. **Cómo funciona** — 3 pasos visuales: Registra tu palma → Coloca tu mano → Listo.
   3. **Por qué Velt** — velocidad, seguridad, simplicidad (los íconos de arriba).
-  4. **Para comercios** — cobra por palma, retira cuando quieras.
-  5. **Seguridad y confianza** — biometría, identidad verificada, dólares digitales.
-  6. **CTA final** + footer.
+  4. **Tu saldo en tu mano** — destaca la función de escanear la palma para ver saldo e historial,
+     sin teléfono. ("Tu saldo, en la palma de tu mano. Solo escanea.")
+  5. **Para comercios** — cobra por palma, retira cuando quieras (incluso de forma privada).
+  6. **Seguridad y confianza** — biometría, identidad verificada, dólares digitales.
+  7. **CTA final** + footer.
 
 ---
 
@@ -188,8 +209,9 @@ serifas. Títulos con peso fuerte (bold/semibold), cuerpo regular.
 
 - [ ] Hero oscuro con palma + glow cian y el tagline.
 - [ ] Paleta: fondo `#06070F` + acento `#00D4C8`.
-- [ ] 3 pasos de "cómo funciona".
-- [ ] Sección de beneficios (cliente + comercio).
+- [ ] 3 pasos de "cómo funciona" (recordar: **palma primero**, teléfono solo recuperación).
+- [ ] Sección "Tu saldo en tu mano" — escanear palma para ver saldo e historial.
+- [ ] Sección de beneficios (cliente + comercio, incluido **retiro privado**).
 - [ ] Sección de seguridad/confianza (biometría, identidad, dólares digitales).
 - [ ] CTA claro (definir cuál con el equipo).
 - [ ] Tono: futurista, humano, beneficio primero, sin jerga técnica.
