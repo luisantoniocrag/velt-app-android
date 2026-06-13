@@ -56,6 +56,9 @@ interface VeltApi {
     @GET("api/v1/withdrawals/{id}")
     suspend fun withdrawal(@Path("id") id: String): Response<WithdrawalStatus>
 
+    @GET("api/v1/payers/{personId}/wallet")
+    suspend fun payerWallet(@Path("personId") personId: String): Response<PayerWallet>
+
     @GET("api/v1/deposits")
     suspend fun deposits(@Query("personId") personId: String): Response<List<Deposit>>
 }

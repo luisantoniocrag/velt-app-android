@@ -8,6 +8,7 @@ import com.velt.data.remote.Deposit
 import com.velt.data.remote.InitiatePaymentRequest
 import com.velt.data.remote.InitiatePaymentResponse
 import com.velt.data.remote.Merchant
+import com.velt.data.remote.PayerWallet
 import com.velt.data.remote.PaymentEvent
 import com.velt.data.remote.PaymentEventsSocket
 import com.velt.data.remote.PaymentStatus
@@ -55,4 +56,7 @@ class PaymentRepository(
 
     suspend fun deposits(personId: String): ApiResult<List<Deposit>> =
         safeApiCall { api.deposits(personId) }
+
+    suspend fun payerWallet(personId: String): ApiResult<PayerWallet> =
+        safeApiCall { api.payerWallet(personId) }
 }

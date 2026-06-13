@@ -124,6 +124,24 @@ data class WithdrawalEvent(
     val reason: String? = null
 )
 
+/** Wallet del pagador (`GET /payers/:personId/wallet`) — scan-to-balance. */
+data class PayerWallet(
+    val personId: String,
+    val address: String,
+    val ensName: String? = null,
+    val usdcBalance: String,
+    val transactions: List<PayerTransaction> = emptyList()
+)
+
+data class PayerTransaction(
+    val paymentId: String,
+    val amount: Double? = null,
+    val status: String,
+    val txHash: String? = null,
+    val merchant: String? = null,
+    val createdAt: String? = null
+)
+
 data class MeResponse(
     val userId: String,
     val isNew: Boolean,

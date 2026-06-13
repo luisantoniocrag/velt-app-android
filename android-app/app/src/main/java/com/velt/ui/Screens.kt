@@ -61,6 +61,7 @@ import java.util.Base64
 fun HomeScreen(
     onChargeClick: () -> Unit,
     onWithdrawClick: () -> Unit,
+    onBalanceClick: () -> Unit,
     onConfigClick: () -> Unit
 ) {
     Column(
@@ -90,6 +91,8 @@ fun HomeScreen(
         PrimaryButton(text = tr("Charge", "Cobrar"), onClick = onChargeClick)
         Spacer(Modifier.height(10.dp))
         GhostButton(text = tr("Withdraw funds", "Retirar fondos"), onClick = onWithdrawClick)
+        Spacer(Modifier.height(10.dp))
+        GhostButton(text = tr("Scan to get balance", "Escanear saldo"), onClick = onBalanceClick)
         Spacer(Modifier.height(10.dp))
         GhostButton(text = tr("Settings", "Configuración"), onClick = onConfigClick)
     }
