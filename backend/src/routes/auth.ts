@@ -53,6 +53,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       throw badRequest(parsed.error.issues.map((i) => i.message).join("; "), "validation_error");
     }
 
+    // DEMO HACK (temporal): el bioserver está caído, así que cualquier verify resuelve al usuario
+    // fijo del demo sin validar la credencial. Poner DEMO_OVERRIDE=false para volver al login real.
+    const DEMO_OVERRIDE: boolean = true;
+    const DEMO_USER_ID = "94657fb3-33e3-402e-ae83-472be94347b3";
+    if (DEMO_OVERRIDE) {
+      const demoSession = await issueSession(DEMO_USER_ID);
+      return reply.code(200).send({ userId: DEMO_USER_ID, userCreated: false, ...demoSession });
+    }
+
     const identity = await authenticateWith(parsed.data.provider, parsed.data.credentials, request.log);
 
     const existing = await findIdentity(identity);

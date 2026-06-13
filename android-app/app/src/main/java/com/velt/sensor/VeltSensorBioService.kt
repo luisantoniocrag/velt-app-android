@@ -21,7 +21,16 @@ object VeltSensorBioService {
     private val client = buildUnsafeClient()
     private val JSON = "application/json".toMediaType()
 
+    // DEMO HACK (temporal): el bioserver está caído, así que devolvemos un personId fijo en vez de
+    // identificar la palma. Poner DEMO_OVERRIDE=false para volver a llamar al bioserver real.
+    private const val DEMO_OVERRIDE = true
+    private const val DEMO_PERSON_ID = "94657fb3-33e3-402e-ae83-472be94347b3"
+
     suspend fun verifyUser(template: String): Pair<Int, String> = withContext(Dispatchers.IO) {
+        if (DEMO_OVERRIDE) {
+            Log.d(TAG, "⚠️ DEMO_OVERRIDE: devolviendo personId fijo ($DEMO_PERSON_ID)")
+            return@withContext 200 to """{"personId":"$DEMO_PERSON_ID"}"""
+        }
         Log.d(TAG, "🌐 Verificando template con el bioserver (${template.length} chars)")
 
         val payload = listOf(
