@@ -142,6 +142,7 @@ GET {{api}}/payments/{{paymentId}}
 ### ── Retiro de fondos del comerciante (asíncrono, igual que un pago) ──
 
 ### 7. Iniciar retiro (requiere Bearer del propio comerciante) → guarda "withdrawalId" + "wsUrl"
+###    private:true → liquida vía el pool de Unlink (arc-testnet, rompe el link). Sin UNLINK_API_KEY → 503.
 # @name withdraw
 POST {{api}}/merchants/{{merchantId}}/withdraw
 Content-Type: application/json
@@ -149,7 +150,8 @@ Authorization: Bearer {{accessToken}}
 
 {
   "to": "0x2222222222222222222222222222222222222222",
-  "amount": 2.50
+  "amount": 2.50,
+  "private": false
 }
 
 ### (copiar el withdrawalId de la respuesta anterior)
@@ -161,6 +163,11 @@ Authorization: Bearer {{accessToken}}
 ### 9. Consultar estado final del retiro (fallback del WS, requiere Bearer)
 GET {{api}}/withdrawals/{{withdrawalId}}
 Authorization: Bearer {{accessToken}}
+
+### ── Scan-to-balance (sin auth: la palma es la credencial) ──
+### La app escanea la palma → personId → consulta aquí la wallet del pagador.
+### Devuelve address, ensName (subname ENSv2), saldo USDC e historial. 404 si no hay wallet.
+GET {{api}}/payers/demo-payer-001/wallet
 
 ### ── Funding del pagador vía Blink (Base 8453, USDC) ──
 ### La app Android abre {{host}}/fund?personId=<id> en un Custom Tab; al terminar, la página

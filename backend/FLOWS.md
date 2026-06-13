@@ -1,260 +1,245 @@
-# Velt Backend — Flujos actuales (v1)
+# Velt Backend — Flujos actuales
 
-> Documento de contexto para agentes/desarrolladores que llegan al proyecto: qué existe hoy,
-> cómo funciona cada flujo y dónde están los límites. La fuente de verdad es el código en
-> `src/`; aquí está el mapa. Complementa a [`README.md`](README.md) (setup) e
-> [`INTEGRATION-ANDROID.md`](INTEGRATION-ANDROID.md) (contrato hacia la app).
+> Mapa de contexto para agentes/devs: qué existe hoy, cómo funciona cada flujo, en qué cadena
+> corre, y cómo probarlo. La fuente de verdad es el código en `src/`. Complementa a
+> [`README.md`](README.md) (setup) e [`INTEGRATION-ANDROID.md`](INTEGRATION-ANDROID.md).
 
-## Qué es este backend
+## Qué es
 
-Servicio Fastify (Node 20 + TypeScript strict) que liquida **pagos USDC on-chain en Arc** vía
-smart accounts ERC-4337. No hace matching biométrico (eso es el bioserver) ni tiene UI. Recibe
-un `personId` ya resuelto (palma identificada) y mueve USDC del pagador al comercio; también
-deja al dueño del comercio **retirar** sus fondos, y gestiona **cuentas de usuario** con login
-por teléfono (OTP) o palma.
+Servicio Fastify (Node 20 + TS strict) que liquida **pagos USDC** entre un pagador (identificado
+por palma) y un comercio, con **escrow condicional** on-chain. Cada actor tiene una **wallet de
+Dynamic (TSS-MPC)** que el backend orquesta. Sin UI; sin matching biométrico (eso es el bioserver).
 
-- Persistencia: **Supabase** (PostgREST con service key — salta RLS). Esquema en `src/db/schema.sql`.
-- On-chain: **viem + permissionless** detrás de la interfaz `Signer` (`src/chain/signer.ts`).
-- Tiempo real: **WebSocket** (`@fastify/websocket`) para el resultado de pagos y retiros.
-- Validación: **zod** en cada body y en la config (`src/config.ts` — si falta una env var el
-  proceso no arranca).
-- Prefijo HTTP: todo cuelga de **`/api/v1`** (salvo `/health` y los WS `/ws/...`).
-- Verificación del build: `npm run typecheck`. No hay tests automatizados; E2E manual con
-  `requests.http` y `wscat`.
+- Persistencia: **Supabase** (PostgREST, service key). Esquema en `src/db/schema.sql`.
+- Firma on-chain: interfaz `Signer` (`src/chain/signer.ts`), backend `dynamic` (Server Wallets).
+- Tiempo real: **WebSocket** para pagos y retiros; `GET` de fallback siempre.
+- Config: **zod** valida el `.env` al arranque (si falta algo, no arranca).
+- Prefijo: todo en **`/api/v1`** (salvo `/health`, `/fund` y `/ws/...`). Build: `npm run typecheck`.
 
-## Glosario — los tres "actores" (no confundirlos)
+## ⛓️ Es multi-cadena (a propósito)
 
-| Concepto | Tabla | Qué es |
+| Pieza | Cadena | Por qué |
 |---|---|---|
-| **Usuario** | `users` | La **persona dueña de comercios**. Se loguea (teléfono/palma → JWT) y administra sus comercios. Es el único actor con autenticación. |
-| **Comercio** | `merchants` | Un negocio que cobra. Pertenece a un usuario (`owner_user_id`). Tiene una smart account que recibe los pagos. |
-| **Pagador** | `velt_users` | La persona que paga con la palma. **No tiene login ni cuenta de usuario** (TODO v2): se identifica solo por `person_id` (el id opaco que devuelve el bioserver) y el backend le deriva una smart account la primera vez que paga. |
+| Wallets, pagos, escrow, retiros | **Arc** | el core de liquidación USDC |
+| Nombres ENS (subnames) | **Sepolia** | ENS vive en L1; el nombre solo apunta a la dirección (misma en cualquier EVM) |
+| Funding del pagador (Blink) | **Base** | Blink deposita ahí; **no hay puente a Arc** (CCTP es stretch) |
+| Retiro privado (Unlink) | **arc-testnet** | pool shielded de Unlink, misma cadena que el core |
 
-Una misma persona física podría ser pagador y usuario, pero hoy son mundos separados:
-`velt_users` (pagador) no se relaciona con `users` (dueño).
+## Glosario — los tres actores
 
-### Identidades y sesiones del usuario
-
-- `user_identities` `(provider, external_id) → user_id`: liga cualquier credencial a un usuario
-  (patrón "accounts"). Providers implementados: `phone` (external_id = teléfono E.164) y `palm`
-  (external_id = `personId` del bioserver). `google`/`email` son stubs que lanzan.
-  `(provider, external_id)` es único: una palma/teléfono no puede pertenecer a dos usuarios.
-  Un usuario puede tener varias identidades (p. ej. teléfono + palma).
-- `refresh_tokens`: sesiones del usuario (ver [Tokens](#tokens)).
-
-### Cuentas on-chain: custodial vs externa
-
-Toda smart account (de pagador o de comercio) la deriva el `LocalSigner` de forma determinista:
-`ownerPrivKey = keccak256("<LOCAL_SIGNER_MASTER_KEY>:<subjectId>")`, donde `subjectId` es el
-`personId` crudo (pagador) o `merchant:<id>` (comercio). La dirección es **contrafactual**
-(válida sin desplegar; el primer UserOp incluye el initCode).
-
-- `merchants.custodial = true` → la cuenta la derivó el backend, **tiene la llave** y puede
-  firmar retiros. Es lo que pasa al crear un comercio sin `smartAccountAddress`.
-- `custodial = false` → el comercio trajo una dirección externa; el backend **no tiene la
-  llave**: recibe pagos normalmente pero `withdraw` responde `409 account_not_custodial`.
-
-## Autenticación de usuario (`src/auth/`, `src/routes/auth.ts`)
-
-Provider-agnóstica: interfaz `AuthProvider` (`auth/provider.ts`), elegida por nombre en el body.
-`authenticate(credentials, ctx) → { provider, externalId }`. El flujo de alta/login es **uno
-solo** (no hay register vs login separados):
-
-### Flujo de login por teléfono (OTP vía Stytch)
-
-1. `POST /auth/phone/otp { phone, channel? }` → normaliza a E.164, dispara el código por
-   Stytch (`otps/{whatsapp|sms}/login_or_create`). `channel` default `"whatsapp"` (SMS a México
-   requiere allowlist + tarjeta en Stytch; WhatsApp no). Responde `204`.
-   - El `phone_id` que devuelve Stytch se guarda en un **Map en memoria con TTL de 10 min**
-     (`auth/stytchPhone.ts`). Un redeploy entre enviar y verificar invalida el OTP pendiente.
-   - `STYTCH_ENV=test` → sandbox: número `+10000000000`, código `000000`, sin SMS real.
-2. `POST /auth/verify { provider: "phone", credentials: { phone, code } }` → verifica el código
-   (`otps/authenticate`) y entra al **login-or-create** (abajo).
-
-### Flujo de login por palma
-
-`POST /auth/verify { provider: "palm", credentials: { template } }` → `auth/palmProvider.ts`
-manda el template al bioserver (`auth/bioserver.ts`, HTTP firmado con HMAC-SHA256, portado de
-`VeltSensorBioService` de Android) y obtiene el `personId` → ese es el `externalId`.
-
-### Login-or-create (`POST /auth/verify`)
-
-Verifica la credencial con el provider y busca `(provider, externalId)` en `user_identities`:
-
-- **Existe** → emite sesión para ese `user_id`. Respuesta: `{ userId, userCreated: false, accessToken, refreshToken, expiresIn }`.
-- **No existe** → crea fila en `users` + la identidad, y emite sesión (`userCreated: true`).
-  **No crea comercio**: el onboarding del cliente decide eso después (vía `GET /auth/me` →
-  `isNew` = no tiene comercios).
-
-Credencial inválida (OTP malo, palma no reconocida) → `401 auth_failed`. Provider desconocido o
-stub → `400 unsupported_provider`.
-
-### Gestión de identidades y cuenta
-
-- `POST /auth/link` (auth) — verifica una credencial nueva y la liga al usuario logueado (p. ej.
-  añadir la palma a una cuenta creada por teléfono). Si ya pertenece a otra cuenta →
-  `409 identity_in_use`; si ya era tuya → `200` idempotente.
-- `DELETE /auth/identities/:provider` (auth) — quita una identidad. Quitar la última →
-  `409 cannot_remove_last_identity`.
-- `GET /auth/me` (auth) — `{ userId, isNew, identities[], merchants[] }`. `isNew` = sin comercios
-  activos (lo usa el onboarding de la app).
-- `DELETE /auth/me` (auth) — borra la cuenta: **soft-delete** de `users` y de todos sus
-  `merchants`, borrado duro de `user_identities`, revocación de todos los `refresh_tokens`.
-  Si algún comercio **custodial** tiene saldo USDC > 0 → `409 must_withdraw_first` (la guardia
-  no aplica a cuentas externas: el backend no custodia esos fondos).
-
-### Tokens
-
-`auth/tokens.ts` — sin dependencias, `node:crypto`:
-
-- **Access token**: JWT HS256 firmado a mano, `sub = userId`, TTL 15 min
-  (`ACCESS_TOKEN_TTL_SECONDS`). La verificación fija `alg` (no confía en el header) y compara la
-  firma en tiempo constante.
-- **Refresh token**: opaco (32 bytes random), TTL 30 días, guardado **hasheado** (sha256) en
-  `refresh_tokens`. `POST /auth/refresh` **rota**: revoca el viejo y emite par nuevo. Reusar un
-  refresh ya revocado se trata como robo → **revoca toda la familia** del usuario.
-  `POST /auth/logout` revoca el refresh recibido.
-- `requireAuth` (`auth/middleware.ts`): preHandler que exige `Authorization: Bearer <access>` y
-  deja `request.userId`. Protege el CRUD de comercios, withdraw, `GET /withdrawals/:id` y los
-  `/auth/*` de cuenta. **Los endpoints de pago NO requieren auth** (los llama el punto de venta /
-  flujo del pagador, que no tiene login en v1).
-
-## Comercios (`src/routes/merchants.ts`)
-
-CRUD autenticado; todo pasa por `loadOwnedMerchant(userId, merchantId)` que exige comercio
-activo (`deleted_at is null`, si no `404 merchant_not_found`) y propiedad
-(`owner_user_id == request.userId`, si no `403 not_account_owner`).
-
-- `POST /merchants { name, smartAccountAddress? }` → crea el comercio con dueño =
-  usuario logueado. Sin dirección → deriva smart account custodial; con dirección externa →
-  `custodial=false`.
-- `GET /merchants` → lista los comercios activos del usuario.
-- `GET /merchants/:id` → detalle + **`usdcBalance` on-chain en vivo** (`getUsdcBalance`,
-  formateado con 6 decimales). El balance no se persiste; siempre se lee de la chain.
-- `PATCH /merchants/:id { name }` → renombra.
-- `DELETE /merchants/:id` → **soft-delete** (`deleted_at`). Si es custodial y tiene saldo > 0 →
-  `409 must_withdraw_first`. Soft y no hard porque `payment_requests`/`withdrawals` referencian
-  `merchants(id)` sin cascade: un hard-delete rompería FKs y perdería historial financiero.
-
-## Flujo de pago (la pieza central — `src/routes/payments.ts`)
-
-Estado en `payment_requests.status`: `pending → authorizing → settled | failed`. Sin auth.
-
-1. **`POST /payments/initiate { merchantId, amount }`** → valida que el comercio exista y esté
-   activo, crea fila `pending`. Responde `201 { paymentId, status, amount, wsUrl }`. La app del
-   comerciante abre el WS (`/ws/payments/:id`) **inmediatamente**, antes del authorize, para no
-   perder eventos.
-2. **`POST /payments/authorize { paymentId, personId }`** → el `personId` viene de identificar
-   la palma contra el bioserver (eso ocurre fuera de este backend). Hace un **claim atómico**:
-   `UPDATE ... SET status='authorizing' WHERE id=? AND status='pending'` — solo un authorize
-   gana la carrera; el perdedor recibe `409 invalid_state`. Responde **`202`** y dispara
-   `void settlePayment(...)` en segundo plano.
-3. **`settlePayment`** (nunca lanza; cualquier fallo → `failed` + evento WS):
-   1. `signer.getOrCreateAccount(personId)` — deriva/crea la smart account del pagador y, de
-      paso, calienta el mapa `address→subject` que `signAndSendUserOp` necesita.
-   2. `ensureVeltUser` — upsert del pagador en `velt_users` (tolera la carrera de dos pagos
-      simultáneos del mismo `personId`); guarda `payer_user_id` en el pago.
-   3. Transfiere USDC de la cuenta del pagador a `merchants.smart_account_address`
-      (`parseUnits(String(amount), 6)` — PostgREST devuelve `numeric` como string).
-   4. Marca `settled` + `tx_hash` (o `failed`) y emite el evento WS.
-4. **`GET /payments/:id`** → fallback si el WS no estaba conectado; el estado siempre persiste
-   en DB aunque el evento se pierda.
-
-Cuenta del pagador sin fondos → `failed` (saldo insuficiente) **es el comportamiento correcto
-de v1**; el funding (Blink) llega en v2.
-
-## Flujo de retiro (`withdrawals` — mismo patrón, al revés)
-
-Estado en `withdrawals.status`: `pending → processing → settled | failed`. Requiere auth +
-propiedad del comercio + cuenta **custodial**.
-
-1. **`POST /merchants/:id/withdraw { to, amount }`** → guardas: dueño (`403`), custodial
-   (`409 account_not_custodial`). Crea fila `pending`, responde **`202`**
-   `{ withdrawalId, status, to, amount, wsUrl }` y dispara `void processWithdrawal(...)`.
-2. **`processWithdrawal`** (nunca lanza): marca `processing`, rehidrata la cuenta del comercio
-   (`getOrCreateAccount(subjectForMerchant(id))` — firmar "en frío" fallaría), firma el
-   `transfer` USDC a `to`, marca `settled` + `tx_hash` o `failed` + `reason`
-   (`classifyFailure` traduce el error on-chain a un motivo legible).
-3. **`GET /withdrawals/:id`** (auth) → fallback del WS. Si el retiro no es de un comercio tuyo
-   responde `404` (no filtra existencia de retiros ajenos).
-
-No hay validación de saldo previa al retiro: si el monto excede el balance, el UserOp falla y
-el retiro queda `failed` con su `reason`.
-
-## WebSockets (`src/lib/events.ts`, `src/ws/`)
-
-- Canales: `/ws/payments/:paymentId` y `/ws/withdrawals/:withdrawalId`.
-- Eventos de pago: `{type:"authorizing"}` → `{type:"settled", txHash, payerPersonId}` |
-  `{type:"failed", reason}`. De retiro: `processing` → `settled`/`failed`.
-- **Un solo socket por canal**, registro en memoria, sin broadcast ni persistencia. Tras un
-  evento terminal el server cierra el socket. Si nadie está conectado el evento se descarta sin
-  error — por eso existen los `GET` de fallback.
-
-## Capa de firma (`src/chain/`)
-
-Interfaz `Signer` elegida por `SIGNER_BACKEND`:
-
-- **`local`** (`localSigner.ts`) — único implementado (Enfoque A, hackathon). El backend
-  custodia `LOCAL_SIGNER_MASTER_KEY` y deriva todos los owners de forma determinista.
-- **`privy` / `turnkey`** — stubs que lanzan `not implemented`; camino de producción (firma
-  externa, el backend nunca toca la llave).
-
-Gotcha: el `LocalSigner` mantiene un **mapa `address→subject` en proceso** que solo se llena al
-llamar `getOrCreateAccount`. Por eso `settlePayment` y `processWithdrawal` lo llaman **siempre**
-antes de firmar. Cualquier código nuevo que firme debe hacer lo mismo.
-
-## Mapa de endpoints
-
-| Método y ruta (`/api/v1`) | Auth | Hace |
+| Actor | Tabla | Qué es |
 |---|---|---|
-| `POST /auth/phone/otp` | no | envía OTP (WhatsApp default / SMS) |
-| `POST /auth/verify` | no | login-or-create → tokens (`userCreated`) |
-| `POST /auth/link` | sí | liga otra identidad a mi cuenta |
-| `DELETE /auth/identities/:provider` | sí | quita una identidad (no la última) |
-| `GET /auth/me` | sí | perfil: `isNew`, identidades, comercios |
-| `DELETE /auth/me` | sí | borra cuenta (guardia de saldo custodial) |
-| `POST /auth/refresh` | no (refresh) | rota refresh → par nuevo |
-| `POST /auth/logout` | no (refresh) | revoca el refresh |
-| `POST /merchants` | sí | crea comercio (deriva cuenta si no trae) |
-| `GET /merchants` | sí | lista mis comercios |
-| `GET /merchants/:id` | sí | detalle + `usdcBalance` on-chain |
-| `PATCH /merchants/:id` | sí | renombra |
-| `DELETE /merchants/:id` | sí | soft-delete (guardia de saldo) |
-| `POST /merchants/:id/withdraw` | sí | retiro → `202` + WS |
-| `GET /withdrawals/:id` | sí | estado del retiro (fallback WS) |
+| **Usuario** | `users` | Persona dueña de comercios. Único con login (palma/teléfono → JWT). |
+| **Comercio** | `merchants` | Negocio que cobra. Pertenece a un usuario. Tiene wallet Dynamic que **recibe** los pagos. |
+| **Pagador** | `velt_users` | Quien paga con la palma. **Sin login**: solo `person_id` (del bioserver) → su wallet Dynamic. |
+
+> Una misma palma puede ser usuario (en la app) y pagador (en el punto de venta): son **entidades
+> distintas con wallets distintas**. La wallet **NO** nace al loguearse — nace al **crear el
+> comercio** (wallet del comercio) o al **primer pago** (wallet del pagador).
+
+## 🔑 Wallets: Dynamic Server Wallets (`SIGNER_BACKEND=dynamic`)
+
+`src/chain/dynamicSigner.ts`. Cada `subject` (`merchant:<id>` o `personId` del pagador, más
+`operator` del escrow) mapea a **una EOA MPC de Dynamic**, persistida en `dynamic_wallets`
+(`account_address` + `wallet_metadata` + `server_key_shares`). El backend firma vía la API de
+Dynamic (el server-share participa en una ceremonia MPC; la llave privada nunca existe completa).
+
+- **Son EOAs → necesitan gas nativo en Arc** para transaccionar (a diferencia de las antiguas
+  smart accounts ERC-4337). El backend **imprime cada wallet nueva** al crearla:
+  `[dynamic] nueva wallet '<subject>' → 0x... (fondear gas)`. El fondeo es manual (hackathon).
+- La interfaz `Signer` hace el swap **transparente**: pagos/escrow/retiros no cambian.
+- Otros backends: `local` (LocalSigner, legado), `privy`/`turnkey` (stubs).
+- **Gotcha**: `signAndSendCalls` rehidrata la wallet por `from`; los callers llaman
+  `getOrCreateAccount(subject)` **antes** de firmar (mapa en memoria + lookup en DB).
+
+## 🤝 Autenticación de usuario (`src/auth/`, `routes/auth.ts`)
+
+Login-or-create (no hay register vs login). En la app, **la palma es el login principal**; el
+teléfono se agrega como **recuperación**.
+
+- **Palma**: `POST /auth/verify { provider:"palm", credentials:{ template } }` → bioserver
+  identify → `personId` = `externalId`.
+- **Teléfono (OTP Stytch)**: `POST /auth/phone/otp { phone, channel? }` (default whatsapp) →
+  luego `POST /auth/verify { provider:"phone", credentials:{ phone, code } }`.
+- `verify` busca `(provider, externalId)` en `user_identities`: existe → sesión; no → crea
+  `users` + identidad (`userCreated:true`). **No crea comercio** (se crea a mano después).
+- `POST /auth/link` agrega una 2ª identidad (p. ej. teléfono de recuperación tras la palma).
+  `DELETE /auth/identities/:provider` la quita (no la última). `GET /auth/me` = perfil
+  (`isNew`, identidades, comercios con `ensName`). `DELETE /auth/me` = soft-delete con guardia de saldo.
+- **Tokens** (`auth/tokens.ts`): access JWT HS256 (15m) + refresh opaco rotativo (30d, hasheado,
+  reuso de revocado → revoca la familia). `requireAuth` protege comercios/withdraw/`/auth/*`.
+  **Los pagos NO requieren auth** (el pagador no tiene login).
+
+## 🏪 Comercios (`routes/merchants.ts`)
+
+CRUD autenticado vía `loadOwnedMerchant` (exige activo + propiedad). Al **crear** un comercio sin
+`smartAccountAddress` → deriva su **wallet Dynamic** (`custodial=true`) y dispara **ENS**
+fire-and-forget. Con dirección externa → `custodial=false` (recibe, pero no retira: `409`).
+`GET /merchants/:id` añade `usdcBalance` on-chain + `ensName`.
+
+## 💸 Flujo de pago con ESCROW (`routes/payments.ts`)
+
+Estado: `pending → authorizing → held → settled | failed`. Sin auth (salvo `/confirm`).
+
+1. **`POST /payments/initiate { merchantId, amount }`** → fila `pending`, responde `201 { paymentId, wsUrl }`. La app abre el WS **antes** de autorizar.
+2. **`POST /payments/authorize { paymentId, personId }`** (el `personId` lo resuelve la app contra
+   el bioserver, client-side) → claim atómico `pending→authorizing`, responde **`202`**, dispara
+   `settlePayment` en background.
+3. **`settlePayment`** (nunca lanza): `getOrCreateAccount(personId)` (wallet Dynamic del pagador)
+   → `ensureVeltUser` (+ ENS `palm-<hash>.velt.eth` fire-and-forget) → **UserOp batcheado
+   `[usdc.approve(escrow), escrow.hold(...)]`** firmado por la wallet del pagador → marca `held`
+   (+ `escrow_tx_hash`, `release_after`) + evento WS `{type:"held"}`.
+4. **Release → `settled`**, por una de dos vías:
+   - **`POST /payments/:id/confirm`** (auth, dueño del comercio) → el `operator` firma
+     `escrow.release(...)` → `settled` + `release_tx_hash`.
+   - **Auto-release**: un `setInterval` (60s) libera los `held` cuyo `release_after` venció.
+5. **`GET /payments/:id`** → fallback; incluye `escrowTxHash`, `releaseTxHash`, `payerEnsName`.
+
+Pagador sin USDC o sin gas → `failed` (`insufficient_funds`). El contrato es
+`contracts/VeltEscrow.sol` (`hold`/`release`/`refund`); `operator` = wallet Dynamic subject
+`operator`. **Redesplegar el escrow tras cambiar de signer** (el operator cambia de dirección).
+
+## 🏧 Retiro del comercio (`routes/merchants.ts`)
+
+Estado: `pending → processing → settled | failed`. Auth + dueño + `custodial`.
+
+- **`POST /merchants/:id/withdraw { to, amount, private? }`** → `202` + WS. `processWithdrawal`
+  (nunca lanza) firma el `transfer` USDC a `to`.
+- **`private:true`** → liquida vía **Unlink** (ver abajo) en vez del transfer directo. Sin
+  `UNLINK_API_KEY` → `503 unlink_not_configured`. Columna `withdrawals.is_private`.
+- `GET /withdrawals/:id` (auth) → fallback.
+
+## 🕵️ Retiro privado vía Unlink (`src/chain/unlink.ts`)
+
+`private:true` enruta el retiro por el **pool shielded de Unlink en arc-testnet**:
+
+1. Rehidrata la wallet Dynamic del comercio como wallet client de viem (`getWalletClient`).
+2. Deriva la cuenta Unlink del comercio (`account.fromSeed`, determinista por `merchantId`).
+3. **`depositWithApproval`** — USDC reales del comercio entran al pool (Permit2, firmado por su
+   wallet Dynamic). **`withdraw`** — retiro privado a `to`, **rompe el link** comercio→destino.
+
+Requiere que la wallet del comercio tenga USDC **+ gas** en arc-testnet.
+
+## 🌐 ENS — subnames ENSv2 (`src/ens/registrar.ts`)
+
+**Fire-and-forget, cosmético, no bloquea nada.** Cada comercio/pagador nuevo obtiene un subname
+de `velt.eth` que **resuelve a su wallet**:
+
+- Comercio → `<slug-del-nombre>.velt.eth` · Pagador → `palm-<hash6>.velt.eth`.
+- Sistema **ENSv2** en Sepolia: `velt.eth` tiene su propio **registry** + **PermissionedResolver**
+  (`ENS_V2_REGISTRY_ADDRESS` / `ENS_V2_RESOLVER_ADDRESS`). El backend hace
+  `registry.register(label, ownerEOA, 0, resolver, 0, expiry)` + `resolver.setAddr(node, wallet)`.
+- Cola en proceso (la EOA firma todo) + guard in-flight + backfill (registra nombres faltantes al
+  consultar comercios o al re-pagar). Si faltan las env → `ensEnabled()=false`, se omite sin error.
+
+## 💳 Funding del pagador vía Blink (`routes/blink.ts`, `routes/fund.ts`)
+
+El pagador recarga USDC con Blink → **aterriza en Base** (chain 8453). **No hay puente a Arc**
+(CCTP es stretch); para el demo el pagador se fondea directo en Arc por faucet.
+
+- `GET /fund?personId=` → página HTML que abre el modal de Blink (Custom Tab desde la app),
+  resuelve la wallet del pagador y vuelve con deep link `velt://deposit`.
+- `POST /blink/sign-payment` → firma ECDSA P-256 del payload (signer de Blink).
+- `POST /deposits/record` + `GET /deposits?personId=` (historial). Sin `BLINK_*` → `503`.
+
+## 🖐️ Scan-to-balance (`routes/payers.ts`)
+
+**`GET /payers/:personId/wallet`** (sin auth) → la app escanea la palma → `personId` → devuelve
+`{ address, ensName, usdcBalance, transactions[] }`. Alimenta la pantalla "Escanear saldo" y la
+info del pagador (saldo antes→después) en el cobro. `404 wallet_not_found` si la palma no tiene wallet.
+
+## 🔌 WebSockets
+
+- `/ws/payments/:id` → `authorizing → held → settled | failed`.
+- `/ws/withdrawals/:id` → `processing → settled | failed`.
+- Un socket por canal, en memoria, sin broadcast; tras evento terminal cierra. Si nadie escucha,
+  el evento se descarta → usar el `GET` de fallback.
+
+## Mapa de endpoints (`/api/v1`)
+
+| Método y ruta | Auth | Hace |
+|---|---|---|
+| `POST /auth/phone/otp` | no | envía OTP |
+| `POST /auth/verify` | no | login-or-create (palma/teléfono) → tokens |
+| `POST /auth/link`, `DELETE /auth/identities/:p` | sí | + / − identidad |
+| `GET /auth/me`, `DELETE /auth/me` | sí | perfil / borrar cuenta |
+| `POST /auth/refresh`, `POST /auth/logout` | refresh | rota / revoca |
+| `POST/GET/PATCH/DELETE /merchants[...]` | sí | CRUD de comercios (deriva wallet + ENS) |
+| `POST /merchants/:id/withdraw` | sí | retiro (`private?`) → `202` + WS |
+| `GET /withdrawals/:id` | sí | estado del retiro |
 | `POST /payments/initiate` | no | crea cobro → `201` + `wsUrl` |
-| `POST /payments/authorize` | no | claim + liquidación en background → `202` |
-| `GET /payments/:id` | no | estado del pago (fallback WS) |
+| `POST /payments/authorize` | no | claim + escrow hold en background → `202` |
+| `POST /payments/:id/confirm` | sí | dueño libera el escrow → `settled` |
+| `GET /payments/:id` | no | estado del pago |
+| `GET /payers/:personId/wallet` | no | **scan-to-balance** (wallet + historial) |
+| `POST /blink/sign-payment`, `GET /deposits/context`, `POST /deposits/record`, `GET /deposits` | no | Blink |
+| `GET /fund` (sin prefijo) | no | página de funding |
 | `GET /health` (sin prefijo) | no | `{ ok: true }` |
 
-Errores: siempre `{ error: <code>, message }`. Códigos en uso: `validation_error`,
-`invalid_phone`, `unsupported_provider`, `auth_failed`, `invalid_refresh_token`,
-`identity_in_use`, `identity_not_found`, `cannot_remove_last_identity`, `must_withdraw_first`,
-`merchant_not_found`, `not_account_owner`, `account_not_custodial`, `payment_not_found`,
-`withdrawal_not_found`, `invalid_state`, `internal_error`.
+Errores: `{ error, message }`. Códigos: `validation_error`, `auth_failed`, `unsupported_provider`,
+`identity_in_use`, `cannot_remove_last_identity`, `must_withdraw_first`, `merchant_not_found`,
+`not_account_owner`, `account_not_custodial`, `unlink_not_configured`, `blink_not_configured`,
+`payment_not_found`, `withdrawal_not_found`, `wallet_not_found`, `invalid_state`, `internal_error`.
 
-## Limitaciones conocidas (v1)
+---
 
-**Single-instance por diseño.** Tres piezas viven en memoria del proceso: el registro de
-sockets WS, el mapa `address→subject` del `LocalSigner` y los OTP pendientes de Stytch. Escalar
-horizontalmente o un redeploy a media operación rompe esas tres cosas (el estado financiero
-nunca se pierde: siempre está en la DB).
+## 🧪 Cómo probar (recetas E2E)
 
-**Seguridad / producción pendiente:**
-- El signer `local` custodia la master key → todas las llaves derivan de un secreto en env.
-  Producción = `privy`/`turnkey` (stubs).
-- Sin rate limiting en ningún endpoint (incluido el envío de OTP).
-- Los endpoints de pago no tienen auth: cualquiera con un `merchantId` puede iniciar cobros y
-  cualquiera con un `paymentId` + `personId` puede autorizar. Aceptado en v1 (el `personId`
-  real solo lo produce el bioserver).
-- Supabase con service key (salta RLS); la autorización es 100% lógica de aplicación.
+> Pre-requisito: `.env` con `SIGNER_BACKEND=dynamic`, `DYNAMIC_*`, `ESCROW_CONTRACT_ADDRESS`
+> (del último `npm run deploy:escrow`), `ENS_V2_*`, `UNLINK_API_KEY`, y `schema.sql` aplicado.
+> Las wallets EOA necesitan **gas nativo en Arc** (manual). `npm run dev` levanta en :3000.
 
-**Alcance que NO está en v1:** login del pagador (en pagos no hay cuenta de usuario), providers
-`google`/`email` (stubs), funding de cuentas (Blink), ENS, session keys, multi-chain, QR,
-apps iOS/Watch. Marcado `// TODO v2` donde aplica.
+### Setup de un escenario de pago (crea comercio + wallet de pagador)
+```bash
+npx tsx scripts/setup-payment-test.ts   # imprime merchantId, wallet del pagador y del operator
+```
+Fondea la **wallet del pagador** (USDC + gas) y el **operator** (gas) en Arc — las direcciones
+las imprime el script. (Ver también [`requests.http`](requests.http) para el flujo HTTP completo.)
 
-**Operativos:**
-- Cambios de esquema → re-pegar `src/db/schema.sql` en el SQL editor de Supabase (es
-  idempotente); si no, PostgREST responde `PGRST204` por cache de esquema.
-- `amount` llega de PostgREST como string → siempre `parseUnits(String(amount), 6)`.
-- `STYTCH_ENV=test` no manda SMS reales; `live` requiere plan de pago.
+### Pago con escrow (palma → held → settled)
+```bash
+# 1. iniciar cobro
+curl -X POST localhost:3000/api/v1/payments/initiate -H 'Content-Type: application/json' \
+  -d '{"merchantId":"<MID>","amount":2.5}'      # → paymentId
+# 2. (otra terminal) abrir el WS:  wscat -c ws://localhost:3000/ws/payments/<paymentId>
+# 3. autorizar con el personId (lo da el bioserver; en el test usa el del setup)
+curl -X POST localhost:3000/api/v1/payments/authorize -H 'Content-Type: application/json' \
+  -d '{"paymentId":"<PID>","personId":"demo-payer-001"}'   # → 202, luego WS: held
+# 4. confirmar entrega (libera el escrow). Necesita Bearer del dueño del comercio.
+curl -X POST localhost:3000/api/v1/payments/<PID>/confirm -H "Authorization: Bearer <TOKEN>"
+# → WS: settled, con escrowTxHash + releaseTxHash reales. (O espera el auto-release, 5 min.)
+```
+Verificado en vivo: el USDC se mueve del pagador al comercio, firmado por wallets MPC de Dynamic,
+y el pagador obtiene su ENS (`palm-xxxx.velt.eth`).
+
+### Scan-to-balance
+```bash
+curl localhost:3000/api/v1/payers/demo-payer-001/wallet
+# → { address, ensName, usdcBalance, transactions[] }
+```
+
+### Retiro privado (Unlink)
+```bash
+# el comercio necesita USDC + gas en arc-testnet
+curl -X POST localhost:3000/api/v1/merchants/<MID>/withdraw -H "Authorization: Bearer <TOKEN>" \
+  -H 'Content-Type: application/json' -d '{"to":"0x...","amount":1,"private":true}'
+```
+
+### Scripts útiles
+- `npm run deploy:escrow` — despliega el escrow con el operator del signer actual.
+- `npm run register:ens` — registra el padre `.eth` (one-off; ya hecho para velt.eth en ENSv2).
+- `scripts/ens-test-subname.ts` — registra un subname de prueba y verifica que resuelve.
+
+---
+
+## ⚠️ Limitaciones / gotchas
+
+- **Single-instance**: registro de sockets WS, mapa del signer y OTPs pendientes viven en memoria.
+  El estado financiero siempre está en la DB.
+- **Wallets MPC = EOAs → gas manual en Arc**. Sin gas, el pago/retiro queda `failed`. (Auto-funding
+  desde una tesorería es un TODO.)
+- **`server_key_shares` en la DB** (hackathon). Producción → vault (HSM/KMS).
+- **Cambio de signer ⇒ redeploy del escrow** (el `operator` cambia de dirección).
+- **Cambios de esquema ⇒ re-pegar `schema.sql`** en Supabase (idempotente; si no, `PGRST204`).
+- **Pagos sin auth** (cualquiera con `merchantId`/`personId`); aceptado en hackathon.
+- **No integrado**: puente Blink(Base)→Arc (CCTP), login del pagador, rate limiting, multi-instancia.
