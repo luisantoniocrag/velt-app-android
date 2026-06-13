@@ -133,10 +133,14 @@ private fun DepositResultDialog(result: DepositResult, onDismiss: () -> Unit) {
 @Composable
 private fun AppNavigation(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val app = context.applicationContext as VeltApp
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
-    var screen by remember { mutableStateOf(Screen.ONBOARDING) }
+    // Sesión persistente: si ya hay tokens guardados, arranca en Home y salta el onboarding.
+    var screen by remember {
+        mutableStateOf(if (app.container.authRepository.isLoggedIn) Screen.HOME else Screen.ONBOARDING)
+    }
     var returnScreen by remember { mutableStateOf(Screen.ONBOARDING) }
     var selectedAddress by remember { mutableStateOf<String?>(null) }
     var selectedName by remember { mutableStateOf<String?>(null) }
@@ -211,6 +215,12 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
                     selectedDeviceName = selectedName,
                     onBluetoothClick = { navigateWithBtPermissions(Screen.BLUETOOTH) },
                     onPalmClick = { navigateWithBtPermissions(Screen.PALM) },
+                    onLogout = {
+                        scope.launch {
+                            app.container.authRepository.logout()
+                            screen = Screen.ONBOARDING
+                        }
+                    },
                     onBack = { screen = Screen.HOME }
                 )
                 Screen.BLUETOOTH -> BluetoothScreen(

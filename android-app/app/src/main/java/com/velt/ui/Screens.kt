@@ -100,6 +100,7 @@ fun ConfigMenuScreen(
     selectedDeviceName: String?,
     onBluetoothClick: () -> Unit,
     onPalmClick: () -> Unit,
+    onLogout: () -> Unit,
     onBack: () -> Unit
 ) {
     Column(
@@ -145,6 +146,10 @@ fun ConfigMenuScreen(
         )
 
         Spacer(Modifier.weight(1f))
+
+        OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
+            Text(tr("Log out", "Cerrar sesión"), color = Velt.Red)
+        }
 
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
             Text(tr("Back", "Volver"))

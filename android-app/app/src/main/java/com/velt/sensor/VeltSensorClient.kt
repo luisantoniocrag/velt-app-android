@@ -107,7 +107,7 @@ class VeltSensorClient(
      * BLE abierta durante la sesión (se cierra en [close]).
      */
     @SuppressLint("MissingPermission")
-    fun connectBleAndWake(timeoutMs: Long = 10_000): Deferred<Boolean> = scope.async {
+    fun connectBleAndWake(timeoutMs: Long = 4_000): Deferred<Boolean> = scope.async {
         val adapter = adapter ?: run {
             emitError("Bluetooth no disponible para wake BLE"); return@async false
         }

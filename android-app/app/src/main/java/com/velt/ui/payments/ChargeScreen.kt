@@ -757,9 +757,9 @@ private fun FailedStep(vm: ChargeViewModel, state: ChargeState.Failed) {
                 }
                 Spacer(Modifier.height(7.dp))
             }
-            RedButton(text = tr("Adjust amount", "Ajustar monto")) { vm.reset() }
+            RedButton(text = tr("Adjust amount", "Ajustar monto")) { vm.editAmount() }
             Spacer(Modifier.height(7.dp))
-            GhostButton(text = tr("Retry", "Reintentar")) { vm.reset() }
+            GhostButton(text = tr("Retry", "Reintentar")) { vm.retryCharge() }
         }
     }
 }

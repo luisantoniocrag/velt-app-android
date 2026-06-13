@@ -2,6 +2,7 @@ package com.velt.sensor
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 
 class VeltSensorRepository(
@@ -16,27 +17,32 @@ class VeltSensorRepository(
 
     val events = client.events
 
-    suspend fun startSession(): Boolean {
-        // Wake BLE: despierta el subsistema de captura del sensor. Best-effort: si falla,
-        // se continúa con SPP igualmente (sin el wake la cámara nunca arranca).
-        Log.d(TAG, "startSession: wake BLE...")
+    suspend fun startSession(): Boolean = coroutineScope {
+        // Wake BLE y conexión SPP arrancan en paralelo. Antes eran secuenciales: el wake
+        // bloqueaba hasta 10s ANTES de empezar el SPP, así que el arranque tardaba la suma de
+        // ambos. Ahora corren a la vez y el tiempo total es el del más lento. El `capture`
+        // sigue después de ambos: sin el wake la cámara del sensor no enciende.
+        Log.d(TAG, "startSession: wake BLE + SPP en paralelo...")
+        val wakeDeferred = client.connectBleAndWake()
+        val sppDeferred = client.connectClassicAndStartReader()
+
         val woke = try {
-            client.connectBleAndWake().await()
+            wakeDeferred.await()
         } catch (t: Throwable) {
             Log.e(TAG, "startSession: error en wake BLE", t)
             false
         }
         Log.d(TAG, "startSession: wake BLE = $woke")
-        if (woke) delay(800)
 
-        Log.d(TAG, "startSession: conectando SPP...")
-        if (!client.connectClassicAndStartReader().await()) {
+        if (!sppDeferred.await()) {
             Log.e(TAG, "startSession: fallo al conectar SPP")
-            return false
+            return@coroutineScope false
         }
-        delay(500)
+
+        // Margen para que el subsistema termine de despertar tras el wake antes del capture.
+        delay(250)
         Log.d(TAG, "startSession: enviando comando capture...")
-        return client.sendCapture()
+        client.sendCapture()
     }
 
     suspend fun connect(): Boolean {

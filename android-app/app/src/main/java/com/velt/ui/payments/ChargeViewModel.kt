@@ -182,6 +182,22 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
         if (merchant == null) loadMerchant()
     }
 
+    /** Reintenta el cobro con el mismo monto. Un pago failed no se re-autoriza: inicia uno nuevo. */
+    fun retryCharge() {
+        trackingJob?.cancel()
+        trackingJob = null
+        errorMessage = null
+        if (amountCents > 0L) startCharge() else state = ChargeState.EnterAmount
+    }
+
+    /** Vuelve a la pantalla de monto conservando el valor para ajustarlo. */
+    fun editAmount() {
+        trackingJob?.cancel()
+        trackingJob = null
+        errorMessage = null
+        state = ChargeState.EnterAmount
+    }
+
     private fun currentPaymentId(): String? = when (val s = state) {
         is ChargeState.AwaitingPalm -> s.paymentId
         is ChargeState.Authorizing -> s.paymentId
