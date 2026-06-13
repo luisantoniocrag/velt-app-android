@@ -37,7 +37,8 @@ import kotlinx.coroutines.launch
 private const val DESIGN_WIDTH = 300f
 private const val STEP_LOADING_MS = 1600L
 
-enum class ObStep { SPLASH, PHONE, OTP, PROFILE, KYC, PALM, WELCOME }
+// Login por palma primero; el teléfono es identidad de recuperación al final del alta.
+enum class ObStep { SPLASH, PALM_LOGIN, PROFILE, KYC, PHONE, OTP, WELCOME }
 
 @Composable
 fun DesignScaled(content: @Composable () -> Unit) {
@@ -88,12 +89,12 @@ fun OnboardingFlow(onFinish: () -> Unit) {
     BackHandler(enabled = step != ObStep.SPLASH && !loading) {
         vm.clearError()
         step = when (step) {
-            ObStep.PHONE -> ObStep.SPLASH
-            ObStep.OTP -> ObStep.PHONE
-            ObStep.PROFILE -> ObStep.OTP
+            ObStep.PALM_LOGIN -> ObStep.SPLASH
+            ObStep.PROFILE -> ObStep.PALM_LOGIN
             ObStep.KYC -> ObStep.PROFILE
-            ObStep.PALM -> ObStep.KYC
-            ObStep.WELCOME -> ObStep.PALM
+            ObStep.PHONE -> ObStep.KYC
+            ObStep.OTP -> ObStep.PHONE
+            ObStep.WELCOME -> ObStep.OTP
             ObStep.SPLASH -> ObStep.SPLASH
         }
     }
@@ -112,13 +113,31 @@ fun OnboardingFlow(onFinish: () -> Unit) {
                 when (current) {
                     ObStep.SPLASH -> SplashScreen(
                         strings, lang, onLang,
-                        onCreate = { vm.clearError(); proceed(ObStep.PHONE) },
-                        onLogin = { vm.clearError(); proceed(ObStep.PHONE) }
+                        onCreate = { vm.clearError(); step = ObStep.PALM_LOGIN },
+                        onLogin = { vm.clearError(); step = ObStep.PALM_LOGIN }
                     )
+                    ObStep.PALM_LOGIN -> PalmLoginScreen(
+                        strings, lang, onLang,
+                        verifyError = vm.errorMessage,
+                        onBack = { back(ObStep.SPLASH) },
+                        onCaptured = { template ->
+                            if (!loading) scope.launch {
+                                loading = true
+                                val outcome = vm.loginWithPalm(template)
+                                loading = false
+                                // Cuenta nueva → sigue el alta (perfil/KYC/teléfono); existente → Home.
+                                if (outcome is VerifyOutcome.Ok) {
+                                    if (outcome.userCreated) step = ObStep.PROFILE else onFinish()
+                                }
+                            }
+                        }
+                    )
+                    ObStep.PROFILE -> ProfileScreen(strings, lang, onLang, onBack = { back(ObStep.PALM_LOGIN) }, onNext = { proceed(ObStep.KYC) })
+                    ObStep.KYC -> KycScreen(strings, lang, onLang, onBack = { back(ObStep.PROFILE) }, onNext = { proceed(ObStep.PHONE) })
                     ObStep.PHONE -> PhoneScreen(
                         strings, lang, onLang,
                         error = vm.errorMessage,
-                        onBack = { back(ObStep.SPLASH) },
+                        onBack = { back(ObStep.KYC) },
                         onNext = { display, e164 ->
                             phoneNumber = display
                             vm.phoneE164 = e164
@@ -133,20 +152,15 @@ fun OnboardingFlow(onFinish: () -> Unit) {
                         onResend = { scope.launch { vm.sendOtp() } },
                         onBack = { back(ObStep.PHONE) },
                         onNext = { code ->
+                            // Teléfono de recuperación: ya estás logueado por palma → se vincula.
                             if (!loading) scope.launch {
                                 loading = true
-                                val outcome = vm.verifyCode(code)
+                                val ok = vm.linkPhoneRecovery(code)
                                 loading = false
-                                if (outcome is VerifyOutcome.Ok) {
-                                    // Cuenta nueva → sigue el onboarding; existente → directo a Home.
-                                    if (outcome.userCreated) step = ObStep.PROFILE else onFinish()
-                                }
+                                if (ok) step = ObStep.WELCOME
                             }
                         }
                     )
-                    ObStep.PROFILE -> ProfileScreen(strings, lang, onLang, onBack = { back(ObStep.OTP) }, onNext = { proceed(ObStep.KYC) })
-                    ObStep.KYC -> KycScreen(strings, lang, onLang, onBack = { back(ObStep.PROFILE) }, onNext = { proceed(ObStep.PALM) })
-                    ObStep.PALM -> PalmScreen(strings, lang, onLang, onBack = { back(ObStep.KYC) }, onNext = { proceed(ObStep.WELCOME) })
                     ObStep.WELCOME -> WelcomeScreen(strings, onFinish = onFinish)
                 }
             }

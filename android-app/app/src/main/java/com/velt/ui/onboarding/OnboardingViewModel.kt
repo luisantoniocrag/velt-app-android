@@ -50,6 +50,31 @@ class OnboardingViewModel(private val repo: AuthRepository) : ViewModel() {
         }
     }
 
+    /** Login por palma (login-or-create). Devuelve `userCreated`. */
+    suspend fun loginWithPalm(template: String): VerifyOutcome {
+        clearError()
+        return when (val result = repo.verifyPalm(template)) {
+            is ApiResult.Success -> VerifyOutcome.Ok(result.data)
+            is ApiResult.Failure -> {
+                errorMessage = when (result.code) {
+                    "auth_failed" -> tr(
+                        "Palm not recognized. Make sure you're enrolled and try again.",
+                        "Palma no reconocida. Asegúrate de estar registrado e inténtalo de nuevo."
+                    )
+                    else -> result.message ?: tr("Couldn't verify your palm.", "No se pudo verificar tu palma.")
+                }
+                VerifyOutcome.Error
+            }
+            is ApiResult.NetworkError -> {
+                errorMessage = tr(
+                    "No connection. Check your internet and try again.",
+                    "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                )
+                VerifyOutcome.Error
+            }
+        }
+    }
+
     /** Verifica el OTP con el endpoint unificado (login-or-create). */
     suspend fun verifyCode(code: String): VerifyOutcome {
         clearError()
@@ -65,6 +90,25 @@ class OnboardingViewModel(private val repo: AuthRepository) : ViewModel() {
                     "Sin conexión. Revisa tu internet e inténtalo de nuevo."
                 )
                 VerifyOutcome.Error
+            }
+        }
+    }
+
+    /** Vincula el teléfono como recuperación (la cuenta ya está logueada por palma). */
+    suspend fun linkPhoneRecovery(code: String): Boolean {
+        clearError()
+        return when (val result = repo.linkPhone(phoneE164, code)) {
+            is ApiResult.Success -> true
+            is ApiResult.Failure -> {
+                errorMessage = verifyError(result.code, result.message)
+                false
+            }
+            is ApiResult.NetworkError -> {
+                errorMessage = tr(
+                    "No connection. Check your internet and try again.",
+                    "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                )
+                false
             }
         }
     }

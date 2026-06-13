@@ -43,6 +43,10 @@ class AuthRepository(
     suspend fun linkPalm(template: String): ApiResult<LinkResponse> =
         safeApiCall { api.link(AuthRequest("palm", Credentials(template = template))) }
 
+    /** Añade el teléfono como identidad de recuperación a la cuenta ya logueada por palma. */
+    suspend fun linkPhone(phoneE164: String, code: String): ApiResult<LinkResponse> =
+        safeApiCall { api.link(AuthRequest("phone", Credentials(phone = phoneE164, code = code))) }
+
     suspend fun me(): ApiResult<MeResponse> = safeApiCall { api.me() }
 
     suspend fun logout() {
