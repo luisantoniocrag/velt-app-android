@@ -19,7 +19,6 @@
     "@dynamic-labs-wallet/node-evm": "^1.0.38",
     "@fastify/websocket": "^11.0.2",
     "@supabase/supabase-js": "^2.45.4",
-    "@unlink-xyz/sdk": "^0.3.0-canary.598",
     "dotenv": "^16.6.1",
     "fastify": "^5.1.0",
     "permissionless": "^0.2.10",
