@@ -35,6 +35,20 @@ alter table merchants add column if not exists deleted_at    timestamptz;
 alter table merchants add column if not exists ens_name      text;
 create index if not exists merchants_owner_idx on merchants (owner_user_id);
 
+-- 5.1b dynamic_wallets ─────────────────────────────────────────
+-- Dynamic Server Wallets (TSS-MPC EOAs). One row per subject ('merchant:<id>' or a payer's
+-- personId). account_address is the on-chain EOA; the MPC key material lives here too.
+-- SECURITY (hackathon): server_key_shares stored in DB; production → secrets vault.
+create table if not exists dynamic_wallets (
+  subject            text primary key,
+  account_address    text not null,
+  wallet_metadata    jsonb not null,
+  server_key_shares  jsonb not null,
+  created_at         timestamptz not null default now()
+);
+
+create index if not exists dynamic_wallets_address_idx on dynamic_wallets (lower(account_address));
+
 -- 5.2 velt_users ───────────────────────────────────────────────
 create table if not exists velt_users (
   id                     uuid primary key default gen_random_uuid(),

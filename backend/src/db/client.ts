@@ -71,6 +71,14 @@ export interface WithdrawalRow {
   updated_at: string;
 }
 
+export interface DynamicWalletRow {
+  subject: string; // 'merchant:<id>' o personId del pagador
+  account_address: string;
+  wallet_metadata: unknown; // jsonb opaco del SDK de Dynamic
+  server_key_shares: unknown; // jsonb opaco (material MPC)
+  created_at: string;
+}
+
 export interface DepositRow {
   id: string;
   person_id: string;

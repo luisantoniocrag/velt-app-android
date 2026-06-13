@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { z } from "zod";
 
-const SignerBackend = z.enum(["local", "privy", "turnkey"]);
+const SignerBackend = z.enum(["local", "privy", "turnkey", "dynamic"]);
 
 const baseSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
@@ -28,6 +28,10 @@ const baseSchema = z.object({
   PRIVY_APP_ID: z.string().optional(),
   PRIVY_APP_SECRET: z.string().optional(),
   TURNKEY_API_KEY: z.string().optional(),
+
+  // Dynamic Server Wallets (MPC EOAs). Required when SIGNER_BACKEND=dynamic.
+  DYNAMIC_ENVIRONMENT_ID: z.string().optional(),
+  DYNAMIC_API_TOKEN: z.string().optional(),
 
   // Auth: JWT de acceso (firma HS256) + ventanas de vida.
   JWT_SECRET: z.string().min(32, "JWT_SECRET debe tener al menos 32 caracteres"),
@@ -65,6 +69,13 @@ const schema = baseSchema.superRefine((cfg, ctx) => {
       code: z.ZodIssueCode.custom,
       path: ["LOCAL_SIGNER_MASTER_KEY"],
       message: "requerida cuando SIGNER_BACKEND=local",
+    });
+  }
+  if (cfg.SIGNER_BACKEND === "dynamic" && (!cfg.DYNAMIC_ENVIRONMENT_ID || !cfg.DYNAMIC_API_TOKEN)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["DYNAMIC_API_TOKEN"],
+      message: "DYNAMIC_ENVIRONMENT_ID y DYNAMIC_API_TOKEN requeridos cuando SIGNER_BACKEND=dynamic",
     });
   }
 });

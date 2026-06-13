@@ -12,9 +12,11 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "deploy:escrow": "tsx scripts/deploy-escrow.ts"
+    "deploy:escrow": "tsx scripts/deploy-escrow.ts",
+    "register:ens": "tsx scripts/register-ens.ts"
   },
   "dependencies": {
+    "@dynamic-labs-wallet/node-evm": "^1.0.38",
     "@fastify/websocket": "^11.0.2",
     "@supabase/supabase-js": "^2.45.4",
     "@unlink-xyz/sdk": "^0.3.0-canary.598",

@@ -47,5 +47,10 @@ export async function getSigner(): Promise<Signer> {
       cached = new TurnkeySigner();
       return cached;
     }
+    case "dynamic": {
+      const { DynamicSigner } = await import("./dynamicSigner.js");
+      cached = new DynamicSigner();
+      return cached;
+    }
   }
 }
