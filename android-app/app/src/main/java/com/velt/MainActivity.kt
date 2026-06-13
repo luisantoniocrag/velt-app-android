@@ -192,6 +192,7 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
             SensorTestDrawer(
                 onBluetooth = { openFromDrawer(Screen.BLUETOOTH) },
                 onPalm = { openFromDrawer(Screen.PALM) },
+                onEnroll = { openFromDrawer(Screen.ENROLL) },
                 onLed = { openFromDrawer(Screen.LED) }
             )
         }
@@ -261,6 +262,7 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
 private fun SensorTestDrawer(
     onBluetooth: () -> Unit,
     onPalm: () -> Unit,
+    onEnroll: () -> Unit,
     onLed: () -> Unit
 ) {
     ModalDrawerSheet(drawerContainerColor = Velt.Surf) {
@@ -302,6 +304,20 @@ private fun SensorTestDrawer(
                 },
                 colors = itemColors,
                 onClick = onPalm
+            )
+            Spacer(Modifier.height(4.dp))
+            NavigationDrawerItem(
+                label = { Text(tr("Enroll palm", "Registrar palma")) },
+                selected = false,
+                icon = {
+                    Icon(
+                        painterResource(R.drawable.ic_palm_icon),
+                        contentDescription = null,
+                        modifier = Modifier.height(24.dp)
+                    )
+                },
+                colors = itemColors,
+                onClick = onEnroll
             )
             Spacer(Modifier.height(4.dp))
             NavigationDrawerItem(
