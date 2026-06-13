@@ -72,6 +72,16 @@ export interface BioserverLogger {
 
 // Identifica una palma. Devuelve el personId o lanza si el bioserver falla o no reconoce la palma.
 export async function identifyPalm(templateBase64: string, log: BioserverLogger): Promise<string> {
+  // DEMO HACK (temporal): el bioserver está caído, así que toda identificación por palma resuelve
+  // al personId fijo del demo. Cubre /auth/link y cualquier endpoint que identifique palma. Poner
+  // DEMO_OVERRIDE=false para volver a llamar al bioserver real.
+  const DEMO_OVERRIDE: boolean = true;
+  if (DEMO_OVERRIDE) {
+    const DEMO_PERSON_ID = "94657fb3-33e3-402e-ae83-472be94347b3";
+    log.info({ personId: DEMO_PERSON_ID }, "DEMO_OVERRIDE: personId fijo (bioserver caído)");
+    return DEMO_PERSON_ID;
+  }
+
   const body: IdentifyTemplate[] = [
     {
       biolocation: "UnknownPalmVeinCapture",
