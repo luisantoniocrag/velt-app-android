@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewmodel.initializer
 import com.velt.data.remote.ApiResult
 import com.velt.data.repository.AuthRepository
+import com.velt.ui.i18n.tr
 
 sealed interface VerifyOutcome {
     /** OTP correcto. [userCreated]=true → cuenta nueva (sigue onboarding); false → ya existía (a Home). */
@@ -33,13 +34,17 @@ class OnboardingViewModel(private val repo: AuthRepository) : ViewModel() {
             is ApiResult.Success -> true
             is ApiResult.Failure -> {
                 errorMessage = when (r.code) {
-                    "invalid_phone", "validation_error" -> "Número de teléfono inválido."
-                    else -> r.message ?: "No se pudo enviar el código."
+                    "invalid_phone", "validation_error" ->
+                        tr("Invalid phone number.", "Número de teléfono inválido.")
+                    else -> r.message ?: tr("Couldn't send the code.", "No se pudo enviar el código.")
                 }
                 false
             }
             is ApiResult.NetworkError -> {
-                errorMessage = "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                errorMessage = tr(
+                    "No connection. Check your internet and try again.",
+                    "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                )
                 false
             }
         }
@@ -55,16 +60,22 @@ class OnboardingViewModel(private val repo: AuthRepository) : ViewModel() {
                 VerifyOutcome.Error
             }
             is ApiResult.NetworkError -> {
-                errorMessage = "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                errorMessage = tr(
+                    "No connection. Check your internet and try again.",
+                    "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                )
                 VerifyOutcome.Error
             }
         }
     }
 
     private fun verifyError(code: String?, message: String?): String = when (code) {
-        "auth_failed" -> "Código incorrecto o expirado. Pide uno nuevo e inténtalo de nuevo."
-        "validation_error" -> "Datos inválidos."
-        else -> message ?: "No se pudo verificar el código."
+        "auth_failed" -> tr(
+            "Incorrect or expired code. Request a new one and try again.",
+            "Código incorrecto o expirado. Pide uno nuevo e inténtalo de nuevo."
+        )
+        "validation_error" -> tr("Invalid data.", "Datos inválidos.")
+        else -> message ?: tr("Couldn't verify the code.", "No se pudo verificar el código.")
     }
 
     companion object {

@@ -83,6 +83,7 @@ import com.velt.sensor.VeltSensorBioService
 import com.velt.sensor.VeltSensorClient
 import com.velt.sensor.VeltSensorConfig
 import com.velt.sensor.VeltSensorRepository
+import com.velt.ui.i18n.tr
 import com.velt.ui.onboarding.CircularKeypad
 import com.velt.ui.onboarding.DesignScaled
 import com.velt.ui.onboarding.GhostButton
@@ -115,7 +116,7 @@ fun ChargeScreen(
             modifier = Modifier.fillMaxSize()
         ) { state ->
             when (state) {
-                is ChargeState.LoadingMerchant -> CenteredSpinner("Cargando tu comercio...")
+                is ChargeState.LoadingMerchant -> CenteredSpinner(tr("Loading your merchant...", "Cargando tu comercio..."))
                 is ChargeState.CreateMerchant -> CreateMerchantStep(vm)
                 is ChargeState.EnterAmount -> EnterAmountStep(vm, onBack)
                 is ChargeState.AwaitingPalm -> AwaitingPalmStep(vm, deviceAddress, state.paymentId)
@@ -154,7 +155,7 @@ private fun EnterAmountStep(vm: ChargeViewModel, onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(20.dp))
-        SectionLabel("Total a cobrar", modifier = Modifier.align(Alignment.CenterHorizontally))
+        SectionLabel(tr("Total to charge", "Total a cobrar"), modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(8.dp))
         AmountRow(vm.amountCents, modifier = Modifier.align(Alignment.CenterHorizontally))
 
@@ -176,11 +177,12 @@ private fun EnterAmountStep(vm: ChargeViewModel, onBack: () -> Unit) {
         )
 
         PrimaryButton(
-            text = if (vm.amountCents > 0) "Cobrar ${formatUsd(vm.amountCents)}" else "Cobrar",
+            text = if (vm.amountCents > 0) tr("Charge ${formatUsd(vm.amountCents)}", "Cobrar ${formatUsd(vm.amountCents)}")
+            else tr("Charge", "Cobrar"),
             enabled = vm.amountCents > 0
         ) { vm.startCharge() }
         Spacer(Modifier.height(8.dp))
-        CancelTextButton("Volver", onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally))
+        CancelTextButton(tr("Back", "Volver"), onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(14.dp))
     }
 }
@@ -282,14 +284,14 @@ private fun AwaitingPalmStep(vm: ChargeViewModel, deviceAddress: String?, paymen
             val started = withTimeoutOrNull(
                 VeltSensorConfig.BLE_CONNECT_TIMEOUT_MS + VeltSensorConfig.SPP_CONNECT_TIMEOUT_MS
             ) { sensor.startSession() } ?: false
-            if (!started) throw Exception("No se pudo conectar con el sensor Velt")
+            if (!started) throw Exception(tr("Couldn't connect to the Velt sensor", "No se pudo conectar con el sensor Velt"))
 
             phase = PalmPhase.SCANNING
             sensor.setLedWhiteBlink()
 
             val template = withTimeoutOrNull(VeltSensorConfig.CAPTURE_TIMEOUT_MS) {
                 templateDeferred.await()
-            } ?: throw Exception("Tiempo de espera agotado esperando la palma")
+            } ?: throw Exception(tr("Timed out waiting for the palm", "Tiempo de espera agotado esperando la palma"))
 
             phase = PalmPhase.VERIFYING
             sensor.stopCapture()
@@ -300,7 +302,10 @@ private fun AwaitingPalmStep(vm: ChargeViewModel, deviceAddress: String?, paymen
 
             val personId = if (code == 200) extractPersonId(body) else null
             if (personId == null) {
-                vm.palmFailed("Palma no reconocida. El pagador debe estar registrado.")
+                vm.palmFailed(tr(
+                    "Palm not recognized. The payer must be registered.",
+                    "Palma no reconocida. El pagador debe estar registrado."
+                ))
             } else {
                 vm.authorize(personId)
             }
@@ -318,7 +323,7 @@ private fun AwaitingPalmStep(vm: ChargeViewModel, deviceAddress: String?, paymen
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            SectionLabel("Cobrando")
+            SectionLabel(tr("Charging", "Cobrando"))
             Spacer(Modifier.height(6.dp))
             Text(
                 formatUsd(vm.amountCents),
@@ -334,24 +339,24 @@ private fun AwaitingPalmStep(vm: ChargeViewModel, deviceAddress: String?, paymen
             Spacer(Modifier.height(16.dp))
             Text(
                 text = when (phase) {
-                    PalmPhase.CONNECTING -> "Conectando con el sensor..."
-                    PalmPhase.SCANNING -> "Pon tu palma en el lector"
-                    PalmPhase.VERIFYING -> "Palma detectada..."
+                    PalmPhase.CONNECTING -> tr("Connecting to the sensor...", "Conectando con el sensor...")
+                    PalmPhase.SCANNING -> tr("Place your palm on the reader", "Pon tu palma en el lector")
+                    PalmPhase.VERIFYING -> tr("Palm detected...", "Palma detectada...")
                 },
                 fontSize = 17.sp, color = Velt.T1, textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(5.dp))
             Text(
                 text = when (phase) {
-                    PalmPhase.CONNECTING -> "Lector Velt vía Bluetooth"
-                    PalmPhase.SCANNING -> handMessage ?: "Mantén la mano quieta 1–2 segundos"
-                    PalmPhase.VERIFYING -> "Leyendo datos biométricos"
+                    PalmPhase.CONNECTING -> tr("Velt reader via Bluetooth", "Lector Velt vía Bluetooth")
+                    PalmPhase.SCANNING -> handMessage ?: tr("Hold your hand still for 1–2 seconds", "Mantén la mano quieta 1–2 segundos")
+                    PalmPhase.VERIFYING -> tr("Reading biometric data", "Leyendo datos biométricos")
                 },
                 fontSize = 13.sp, color = Velt.T2, textAlign = TextAlign.Center
             )
         }
 
-        CancelTextButton("Cancelar cobro", onClick = { vm.reset() })
+        CancelTextButton(tr("Cancel charge", "Cancelar cobro"), onClick = { vm.reset() })
     }
 }
 
@@ -449,9 +454,9 @@ private fun AuthorizingStep() {
     ) {
         ProcessingRings()
         Spacer(Modifier.height(24.dp))
-        Text("Procesando pago...", fontSize = 18.sp, color = Velt.T1)
+        Text(tr("Processing payment...", "Procesando pago..."), fontSize = 18.sp, color = Velt.T1)
         Spacer(Modifier.height(6.dp))
-        Text("Asegurando los fondos en escrow", fontSize = 13.sp, color = Velt.T2)
+        Text(tr("Securing the funds in escrow", "Asegurando los fondos en escrow"), fontSize = 13.sp, color = Velt.T2)
     }
 }
 
@@ -504,24 +509,25 @@ private fun HeldStep(vm: ChargeViewModel, initial: ChargeState.Held) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            StatusRow(color = Velt.Amber, label = "en escrow", icon = Icons.Filled.Schedule)
+            StatusRow(color = Velt.Amber, label = tr("in escrow", "en escrow"), icon = Icons.Filled.Schedule)
             Spacer(Modifier.height(10.dp))
             Text(
                 formatUsd(vm.amountCents),
                 fontSize = 46.sp, fontFamily = DmSans, fontWeight = FontWeight.ExtraLight,
                 letterSpacing = (-2).sp, color = Velt.T1
             )
-            Text("retenido del pagador", fontSize = 11.sp, color = Color.White.copy(alpha = 0.28f))
+            Text(tr("held from the payer", "retenido del pagador"), fontSize = 11.sp, color = Color.White.copy(alpha = 0.28f))
             countdown?.let {
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    if (it == "0:00") "Liberando automáticamente..." else "Liberación automática en $it",
+                    if (it == "0:00") tr("Auto-releasing...", "Liberando automáticamente...")
+                    else tr("Auto-release in $it", "Liberación automática en $it"),
                     fontSize = 14.sp, color = Velt.Amber
                 )
             }
             state.escrowTxHash?.let { hash ->
                 Spacer(Modifier.height(14.dp))
-                CopyableHash(label = "Tx escrow", hash = hash)
+                CopyableHash(label = tr("Escrow tx", "Tx escrow"), hash = hash)
             }
             vm.errorMessage?.let {
                 Spacer(Modifier.height(10.dp))
@@ -531,9 +537,9 @@ private fun HeldStep(vm: ChargeViewModel, initial: ChargeState.Held) {
             if (state.confirming) {
                 CircularProgressIndicator(color = Velt.Cyan, strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
                 Spacer(Modifier.height(8.dp))
-                Text("Liberando el escrow...", fontSize = 13.sp, color = Velt.T2)
+                Text(tr("Releasing the escrow...", "Liberando el escrow..."), fontSize = 13.sp, color = Velt.T2)
             } else {
-                PrimaryButton(text = "Confirmar entrega") { vm.confirmDelivery() }
+                PrimaryButton(text = tr("Confirm delivery", "Confirmar entrega")) { vm.confirmDelivery() }
             }
         }
     }
@@ -576,19 +582,19 @@ private fun SettledStep(vm: ChargeViewModel, state: ChargeState.Settled, onBack:
                 fontSize = 46.sp, fontFamily = DmSans, fontWeight = FontWeight.ExtraLight,
                 letterSpacing = (-2).sp, color = Velt.T1
             )
-            Text("cobrado exitosamente", fontSize = 11.sp, color = Color.White.copy(alpha = 0.28f))
+            Text(tr("charged successfully", "cobrado exitosamente"), fontSize = 11.sp, color = Color.White.copy(alpha = 0.28f))
             state.payerEnsName?.let { ens ->
                 Spacer(Modifier.height(12.dp))
                 PayerCard(ens)
             }
             state.txHash?.let { hash ->
                 Spacer(Modifier.height(12.dp))
-                CopyableHash(label = "Tx liquidación", hash = hash)
+                CopyableHash(label = tr("Settlement tx", "Tx liquidación"), hash = hash)
             }
             Spacer(Modifier.height(16.dp))
-            PrimaryButton(text = "Nuevo cobro") { vm.reset() }
+            PrimaryButton(text = tr("New charge", "Nuevo cobro")) { vm.reset() }
             Spacer(Modifier.height(7.dp))
-            GhostButton(text = "Volver al inicio", onClick = onBack)
+            GhostButton(text = tr("Back to home", "Volver al inicio"), onClick = onBack)
         }
     }
 }
@@ -654,22 +660,22 @@ private fun FailedStep(vm: ChargeViewModel, state: ChargeState.Failed) {
                     )
                     Spacer(Modifier.height(5.dp))
                     Text(
-                        if (state.canFundPayer) "Recarga su saldo o ajusta el monto."
-                        else "Ajusta el monto o inténtalo de nuevo.",
+                        if (state.canFundPayer) tr("Top up their balance or adjust the amount.", "Recarga su saldo o ajusta el monto.")
+                        else tr("Adjust the amount or try again.", "Ajusta el monto o inténtalo de nuevo."),
                         fontSize = 13.sp, color = Velt.T2, textAlign = TextAlign.Center
                     )
                 }
             }
             Spacer(Modifier.height(12.dp))
             if (state.canFundPayer) {
-                PrimaryButton(text = "Fondear cuenta del pagador") {
+                PrimaryButton(text = tr("Fund the payer's account", "Fondear cuenta del pagador")) {
                     vm.lastPersonId?.let { openFundingPage(context, it) }
                 }
                 Spacer(Modifier.height(7.dp))
             }
-            RedButton(text = "Ajustar monto") { vm.reset() }
+            RedButton(text = tr("Adjust amount", "Ajustar monto")) { vm.reset() }
             Spacer(Modifier.height(7.dp))
-            GhostButton(text = "Reintentar") { vm.reset() }
+            GhostButton(text = tr("Retry", "Reintentar")) { vm.reset() }
         }
     }
 }
@@ -769,7 +775,7 @@ private fun PayerCard(ensName: String) {
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(ensName, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Velt.T1, maxLines = 1)
-            Text("hace un momento", fontSize = 11.sp, color = Velt.T2)
+            Text(tr("just now", "hace un momento"), fontSize = 11.sp, color = Velt.T2)
         }
         Box(
             modifier = Modifier
@@ -778,7 +784,7 @@ private fun PayerCard(ensName: String) {
                 .border(1.dp, Velt.Cyan.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
                 .padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
-            Text("verificado", fontSize = 9.sp, color = Velt.Cyan)
+            Text(tr("verified", "verificado"), fontSize = 9.sp, color = Velt.Cyan)
         }
     }
 }
@@ -870,15 +876,15 @@ private fun CreateMerchantStep(vm: ChargeViewModel) {
     ) {
         VeltWordmark(fontSize = 22)
         Spacer(Modifier.height(16.dp))
-        Text("Crea tu comercio", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Velt.T1)
+        Text(tr("Create your merchant", "Crea tu comercio"), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Velt.T1)
         Spacer(Modifier.height(8.dp))
-        Text("Necesitas un comercio para empezar a cobrar.", fontSize = 14.sp, color = Velt.T2)
+        Text(tr("You need a merchant to start charging.", "Necesitas un comercio para empezar a cobrar."), fontSize = 14.sp, color = Velt.T2)
         Spacer(Modifier.height(20.dp))
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             singleLine = true,
-            placeholder = { Text("Nombre del comercio", color = Velt.T3) },
+            placeholder = { Text(tr("Merchant name", "Nombre del comercio"), color = Velt.T3) },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Velt.Cyan,
                 unfocusedBorderColor = Velt.Border,
@@ -893,7 +899,7 @@ private fun CreateMerchantStep(vm: ChargeViewModel) {
             Text(it, fontSize = 13.sp, color = Velt.Red)
         }
         Spacer(Modifier.height(20.dp))
-        PrimaryButton(text = "Crear comercio", enabled = name.isNotBlank()) {
+        PrimaryButton(text = tr("Create merchant", "Crear comercio"), enabled = name.isNotBlank()) {
             vm.createMerchant(name)
         }
     }

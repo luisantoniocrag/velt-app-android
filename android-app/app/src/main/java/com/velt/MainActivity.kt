@@ -52,6 +52,7 @@ import com.velt.ui.PalmValidationScreen
 import com.velt.ui.onboarding.OnboardingFlow
 import com.velt.ui.payments.ChargeScreen
 import com.velt.ui.payments.DepositResult
+import com.velt.ui.i18n.tr
 import com.velt.ui.payments.WithdrawScreen
 import com.velt.ui.payments.parseDepositDeepLink
 import com.velt.ui.theme.AppTheme
@@ -92,21 +93,28 @@ private fun DepositResultDialog(result: DepositResult, onDismiss: () -> Unit) {
         containerColor = Velt.Surf,
         title = {
             Text(
-                if (result.ok) "Depósito iniciado ✓" else "Depósito fallido",
+                if (result.ok) tr("Deposit started ✓", "Depósito iniciado ✓")
+                else tr("Deposit failed", "Depósito fallido"),
                 color = if (result.ok) Velt.T1 else Velt.Red
             )
         },
         text = {
             Column {
                 Text(
-                    if (result.ok) "Los fondos están en camino a la cuenta del pagador."
-                    else "No se pudo completar el depósito. Inténtalo de nuevo.",
+                    if (result.ok) tr(
+                        "The funds are on their way to the payer's account.",
+                        "Los fondos están en camino a la cuenta del pagador."
+                    )
+                    else tr(
+                        "The deposit couldn't be completed. Try again.",
+                        "No se pudo completar el depósito. Inténtalo de nuevo."
+                    ),
                     color = Velt.T2
                 )
                 result.transferId?.let {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Transferencia: $it",
+                        tr("Transfer: $it", "Transferencia: $it"),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         color = Velt.T2
@@ -116,7 +124,7 @@ private fun DepositResultDialog(result: DepositResult, onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Entendido", color = Velt.Cyan)
+                Text(tr("Got it", "Entendido"), color = Velt.Cyan)
             }
         }
     )
@@ -235,10 +243,10 @@ private fun SensorTestDrawer(
     ModalDrawerSheet(drawerContainerColor = Velt.Surf) {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(24.dp))
-            Text("Pruebas", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
+            Text(tr("Tests", "Pruebas"), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
             Spacer(Modifier.height(2.dp))
             Text(
-                "Herramientas del sensor (sin integrar)",
+                tr("Sensor tools (not integrated)", "Herramientas del sensor (sin integrar)"),
                 fontSize = 12.sp,
                 color = Velt.T2
             )
@@ -252,7 +260,7 @@ private fun SensorTestDrawer(
             )
 
             NavigationDrawerItem(
-                label = { Text("Dispositivos Bluetooth") },
+                label = { Text(tr("Bluetooth devices", "Dispositivos Bluetooth")) },
                 selected = false,
                 icon = { Icon(Icons.Filled.Bluetooth, contentDescription = null) },
                 colors = itemColors,
@@ -260,7 +268,7 @@ private fun SensorTestDrawer(
             )
             Spacer(Modifier.height(4.dp))
             NavigationDrawerItem(
-                label = { Text("Validar palma") },
+                label = { Text(tr("Validate palm", "Validar palma")) },
                 selected = false,
                 icon = {
                     Icon(
@@ -274,7 +282,7 @@ private fun SensorTestDrawer(
             )
             Spacer(Modifier.height(4.dp))
             NavigationDrawerItem(
-                label = { Text("Probar LED") },
+                label = { Text(tr("Test LED", "Probar LED")) },
                 selected = false,
                 icon = { Icon(Icons.Filled.Lightbulb, contentDescription = null) },
                 colors = itemColors,

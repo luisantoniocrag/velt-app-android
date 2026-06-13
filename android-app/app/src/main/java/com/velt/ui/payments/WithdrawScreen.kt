@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.velt.VeltApp
+import com.velt.ui.i18n.tr
 import com.velt.ui.onboarding.DesignScaled
 import com.velt.ui.onboarding.GhostButton
 import com.velt.ui.onboarding.PrimaryButton
@@ -68,7 +69,7 @@ fun WithdrawScreen(onBack: () -> Unit) {
             modifier = Modifier.fillMaxSize()
         ) { state ->
             when (state) {
-                is WithdrawState.Loading -> CenteredSpinner("Cargando tu saldo...")
+                is WithdrawState.Loading -> CenteredSpinner(tr("Loading your balance...", "Cargando tu saldo..."))
                 is WithdrawState.EnterDetails -> EnterDetailsStep(vm, onBack)
                 is WithdrawState.Processing -> ProcessingStep()
                 is WithdrawState.Settled -> WithdrawSettledStep(vm, state, onBack)
@@ -119,7 +120,7 @@ private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
                 .border(1.dp, Velt.Border, RoundedCornerShape(16.dp))
                 .padding(vertical = 18.dp)
         ) {
-            SectionLabel("Saldo disponible")
+            SectionLabel(tr("Available balance", "Saldo disponible"))
             Spacer(Modifier.height(6.dp))
             Text(
                 formatUsdc(vm.balance),
@@ -134,7 +135,7 @@ private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
             value = address,
             onValueChange = { address = it },
             singleLine = true,
-            placeholder = { Text("Dirección destino (0x...)", color = Velt.T3) },
+            placeholder = { Text(tr("Destination address (0x...)", "Dirección destino (0x...)"), color = Velt.T3) },
             textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
             isError = address.isNotBlank() && !addressValid,
             colors = withdrawFieldColors(),
@@ -145,7 +146,7 @@ private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
             value = amountText,
             onValueChange = { amountText = it.replace(",", ".") },
             singleLine = true,
-            placeholder = { Text("Monto USDC", color = Velt.T3) },
+            placeholder = { Text(tr("USDC amount", "Monto USDC"), color = Velt.T3) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             isError = amountText.isNotBlank() && !amountValid,
             trailingIcon = {
@@ -164,7 +165,10 @@ private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
         if (!vm.custodial) {
             Spacer(Modifier.height(10.dp))
             Text(
-                "Esta cuenta es externa: Velt no custodia su llave y no puede retirar por ti.",
+                tr(
+                    "This account is external: Velt doesn't hold its key and can't withdraw for you.",
+                    "Esta cuenta es externa: Velt no custodia su llave y no puede retirar por ti."
+                ),
                 fontSize = 12.sp, color = Velt.Amber
             )
         }
@@ -175,11 +179,12 @@ private fun EnterDetailsStep(vm: WithdrawViewModel, onBack: () -> Unit) {
 
         Spacer(Modifier.weight(1f))
         PrimaryButton(
-            text = if (amountValid) "Retirar ${formatUsdc(amount)}" else "Retirar",
+            text = if (amountValid) tr("Withdraw ${formatUsdc(amount)}", "Retirar ${formatUsdc(amount)}")
+            else tr("Withdraw", "Retirar"),
             enabled = canWithdraw
         ) { vm.startWithdraw(address, amount) }
         Spacer(Modifier.height(8.dp))
-        CancelTextButton("Volver", onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally))
+        CancelTextButton(tr("Back", "Volver"), onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(14.dp))
     }
 }
@@ -193,9 +198,12 @@ private fun ProcessingStep() {
     ) {
         CircularProgressIndicator(color = Velt.Cyan, strokeWidth = 4.dp)
         Spacer(Modifier.height(24.dp))
-        Text("Procesando retiro...", fontSize = 18.sp, color = Velt.T1)
+        Text(tr("Processing withdrawal...", "Procesando retiro..."), fontSize = 18.sp, color = Velt.T1)
         Spacer(Modifier.height(6.dp))
-        Text("Enviando USDC a la dirección destino", fontSize = 13.sp, color = Velt.T2)
+        Text(
+            tr("Sending USDC to the destination address", "Enviando USDC a la dirección destino"),
+            fontSize = 13.sp, color = Velt.T2
+        )
     }
 }
 
@@ -209,22 +217,25 @@ private fun WithdrawSettledStep(vm: WithdrawViewModel, state: WithdrawState.Sett
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            StatusRow(color = Velt.Green, label = "enviado", icon = Icons.Filled.Check)
+            StatusRow(color = Velt.Green, label = tr("sent", "enviado"), icon = Icons.Filled.Check)
             Spacer(Modifier.height(10.dp))
             Text(
                 formatUsdc(vm.lastAmount),
                 fontSize = 46.sp, fontFamily = DmSans, fontWeight = FontWeight.ExtraLight,
                 letterSpacing = (-2).sp, color = Velt.T1
             )
-            Text("retirado de tu comercio", fontSize = 11.sp, color = Color.White.copy(alpha = 0.28f))
+            Text(
+                tr("withdrawn from your merchant", "retirado de tu comercio"),
+                fontSize = 11.sp, color = Color.White.copy(alpha = 0.28f)
+            )
             state.txHash?.let { hash ->
                 Spacer(Modifier.height(14.dp))
-                CopyableHash(label = "Tx retiro", hash = hash)
+                CopyableHash(label = tr("Withdrawal tx", "Tx retiro"), hash = hash)
             }
             Spacer(Modifier.height(20.dp))
-            PrimaryButton(text = "Nuevo retiro") { vm.reset() }
+            PrimaryButton(text = tr("New withdrawal", "Nuevo retiro")) { vm.reset() }
             Spacer(Modifier.height(7.dp))
-            GhostButton(text = "Volver al inicio", onClick = onBack)
+            GhostButton(text = tr("Back to home", "Volver al inicio"), onClick = onBack)
         }
     }
 }
@@ -239,7 +250,7 @@ private fun WithdrawFailedStep(vm: WithdrawViewModel, state: WithdrawState.Faile
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            StatusRow(color = Velt.Red, label = "failed", icon = Icons.Filled.Close)
+            StatusRow(color = Velt.Red, label = tr("failed", "failed"), icon = Icons.Filled.Close)
             Spacer(Modifier.height(12.dp))
             Box(
                 modifier = Modifier
@@ -257,9 +268,9 @@ private fun WithdrawFailedStep(vm: WithdrawViewModel, state: WithdrawState.Faile
                 )
             }
             Spacer(Modifier.height(16.dp))
-            PrimaryButton(text = "Reintentar") { vm.reset() }
+            PrimaryButton(text = tr("Retry", "Reintentar")) { vm.reset() }
             Spacer(Modifier.height(7.dp))
-            GhostButton(text = "Volver al inicio", onClick = onBack)
+            GhostButton(text = tr("Back to home", "Volver al inicio"), onClick = onBack)
         }
     }
 }

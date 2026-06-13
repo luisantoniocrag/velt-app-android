@@ -44,6 +44,7 @@ import com.velt.sensor.VeltSensorBioService
 import com.velt.sensor.VeltSensorConfig
 import com.velt.sensor.VeltSensorRepository
 import com.velt.sensor.VeltSensorClient
+import com.velt.ui.i18n.tr
 import com.velt.ui.onboarding.GhostButton
 import com.velt.ui.onboarding.PrimaryButton
 import com.velt.ui.payments.VeltWordmark
@@ -79,18 +80,18 @@ fun HomeScreen(
         Spacer(Modifier.height(12.dp))
         VeltWordmark(fontSize = 40)
         Text(
-            text = "Cobra con la palma de la mano",
+            text = tr("Pay with the palm of your hand", "Cobra con la palma de la mano"),
             fontSize = 14.sp,
             color = Velt.T2,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 40.dp)
         )
 
-        PrimaryButton(text = "Cobrar", onClick = onChargeClick)
+        PrimaryButton(text = tr("Charge", "Cobrar"), onClick = onChargeClick)
         Spacer(Modifier.height(10.dp))
-        GhostButton(text = "Retirar fondos", onClick = onWithdrawClick)
+        GhostButton(text = tr("Withdraw funds", "Retirar fondos"), onClick = onWithdrawClick)
         Spacer(Modifier.height(10.dp))
-        GhostButton(text = "Configuración", onClick = onConfigClick)
+        GhostButton(text = tr("Settings", "Configuración"), onClick = onConfigClick)
     }
 }
 
@@ -107,7 +108,7 @@ fun ConfigMenuScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Configuración", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Settings", "Configuración"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
         Button(
             onClick = onBluetoothClick,
@@ -117,7 +118,7 @@ fun ConfigMenuScreen(
         ) {
             Icon(Icons.Filled.Bluetooth, contentDescription = null)
             Spacer(Modifier.size(12.dp))
-            Text("Dispositivos Bluetooth", fontSize = 18.sp)
+            Text(tr("Bluetooth devices", "Dispositivos Bluetooth"), fontSize = 18.sp)
         }
 
         Button(
@@ -132,11 +133,12 @@ fun ConfigMenuScreen(
                 modifier = Modifier.size(24.dp)
             )
             Spacer(Modifier.size(12.dp))
-            Text("Validar palma", fontSize = 18.sp)
+            Text(tr("Validate palm", "Validar palma"), fontSize = 18.sp)
         }
 
         Text(
-            text = "Sensor: ${selectedDeviceName ?: "automático (primer emparejado)"}",
+            text = tr("Sensor: ", "Sensor: ") +
+                (selectedDeviceName ?: tr("automatic (first paired)", "automático (primer emparejado)")),
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp)
@@ -145,7 +147,7 @@ fun ConfigMenuScreen(
         Spacer(Modifier.weight(1f))
 
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text("Volver")
+            Text(tr("Back", "Volver"))
         }
     }
 }
@@ -160,7 +162,7 @@ fun PalmValidationScreen(
     val context = LocalContext.current
 
     var stage by remember { mutableStateOf(PalmStage.CONNECTING) }
-    var statusMessage by remember { mutableStateOf("Conectando con el sensor...") }
+    var statusMessage by remember { mutableStateOf(tr("Connecting to the sensor...", "Conectando con el sensor...")) }
     var handMessage by remember { mutableStateOf<String?>(null) }
     var httpStatus by remember { mutableStateOf<Int?>(null) }
     var responseBody by remember { mutableStateOf("") }
@@ -171,7 +173,7 @@ fun PalmValidationScreen(
 
     LaunchedEffect(attemptKey) {
         stage = PalmStage.CONNECTING
-        statusMessage = "Conectando con el sensor..."
+        statusMessage = tr("Connecting to the sensor...", "Conectando con el sensor...")
         handMessage = null
         httpStatus = null
         responseBody = ""
@@ -218,23 +220,23 @@ fun PalmValidationScreen(
             ) {
                 repo.startSession()
             } ?: false
-            if (!started) throw Exception("No se pudo conectar con el dispositivo Velt")
+            if (!started) throw Exception(tr("Couldn't connect to the Velt device", "No se pudo conectar con el dispositivo Velt"))
 
             stage = PalmStage.SCANNING
-            statusMessage = "Coloca tu palma sobre el sensor"
+            statusMessage = tr("Place your palm on the sensor", "Coloca tu palma sobre el sensor")
             repo.setLedWhiteBlink()
 
             val template = withTimeoutOrNull(VeltSensorConfig.CAPTURE_TIMEOUT_MS) {
                 templateDeferred.await()
-            } ?: throw Exception("Tiempo de espera agotado esperando la palma")
+            } ?: throw Exception(tr("Timed out waiting for the palm", "Tiempo de espera agotado esperando la palma"))
 
             stage = PalmStage.VERIFYING
-            statusMessage = "Verificando con el bioserver..."
+            statusMessage = tr("Verifying with the bioserver...", "Verificando con el bioserver...")
             repo.stopCapture()
 
             val (code, body) = withTimeoutOrNull(VeltSensorConfig.VERIFY_TIMEOUT_MS) {
                 VeltSensorBioService.verifyUser(template)
-            } ?: (-1 to "Tiempo de espera agotado con el bioserver")
+            } ?: (-1 to tr("Timed out with the bioserver", "Tiempo de espera agotado con el bioserver"))
 
             httpStatus = code
             responseBody = body
@@ -243,7 +245,7 @@ fun PalmValidationScreen(
 
             stage = PalmStage.RESULT
         } catch (e: Exception) {
-            errorMessage = e.message ?: "Error desconocido"
+            errorMessage = e.message ?: tr("Unknown error", "Error desconocido")
             stage = PalmStage.ERROR
         } finally {
             collector.cancel()
@@ -259,7 +261,7 @@ fun PalmValidationScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text("Validación de palma", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Palm validation", "Validación de palma"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
         Box(
             modifier = Modifier
@@ -280,8 +282,8 @@ fun PalmValidationScreen(
         Text(
             text = when (stage) {
                 PalmStage.CONNECTING, PalmStage.SCANNING, PalmStage.VERIFYING -> statusMessage
-                PalmStage.RESULT -> "Respuesta recibida del bioserver"
-                PalmStage.ERROR -> errorMessage ?: "Error"
+                PalmStage.RESULT -> tr("Response received from the bioserver", "Respuesta recibida del bioserver")
+                PalmStage.ERROR -> errorMessage ?: tr("Error", "Error")
             },
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
@@ -301,9 +303,9 @@ fun PalmValidationScreen(
                         Text(it, fontWeight = FontWeight.Medium)
                     }
                     Spacer(Modifier.height(12.dp))
-                    Text("Respuesta:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(tr("Response:", "Respuesta:"), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     Text(
-                        text = responseBody.ifBlank { "(vacío)" },
+                        text = responseBody.ifBlank { tr("(empty)", "(vacío)") },
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -317,7 +319,7 @@ fun PalmValidationScreen(
                 onClick = { openFundingPage(context, recognizedPersonId!!) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Fondear cuenta")
+                Text(tr("Fund account", "Fondear cuenta"))
             }
         }
 
@@ -326,20 +328,20 @@ fun PalmValidationScreen(
                 onClick = { attemptKey++ },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Reintentar")
+                Text(tr("Retry", "Reintentar"))
             }
         }
 
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text("Volver")
+            Text(tr("Back", "Volver"))
         }
     }
 }
 
 private fun buildSummary(code: Int, body: String): String {
-    if (code == -1) return "Error de red: $body"
-    if (code != 200) return "El bioserver respondió con error (HTTP $code)"
-    if (body.isBlank()) return "Respuesta vacía"
+    if (code == -1) return tr("Network error: ", "Error de red: ") + body
+    if (code != 200) return tr("The bioserver responded with an error (HTTP $code)", "El bioserver respondió con error (HTTP $code)")
+    if (body.isBlank()) return tr("Empty response", "Respuesta vacía")
     return try {
         val json = JSONObject(body)
         val success = json.optBoolean("success", false) ||
@@ -348,11 +350,12 @@ private fun buildSummary(code: Int, body: String): String {
             val personId = json.optString("personId", "")
             val subjectId = json.optString("subjectId", "")
             val id = personId.ifEmpty { subjectId }
-            "Palma reconocida" + if (id.isNotEmpty()) " — ID: $id" else ""
+            tr("Palm recognized", "Palma reconocida") + if (id.isNotEmpty()) " — ID: $id" else ""
         } else {
-            "Palma no reconocida: " + json.optString("message", "sin coincidencia")
+            tr("Palm not recognized: ", "Palma no reconocida: ") +
+                json.optString("message", tr("no match", "sin coincidencia"))
         }
     } catch (e: Exception) {
-        "Respuesta no-JSON recibida"
+        tr("Non-JSON response received", "Respuesta no-JSON recibida")
     }
 }

@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import com.velt.ui.i18n.tr
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -111,7 +112,7 @@ fun LedTestScreen(deviceAddress: String? = null, onBack: () -> Unit) {
         if (connected) {
             stage = LedStage.READY
         } else {
-            errorMessage = "No se pudo conectar con el dispositivo Velt"
+            errorMessage = tr("Couldn't connect to the Velt device", "No se pudo conectar con el dispositivo Velt")
             stage = LedStage.ERROR
         }
     }
@@ -128,7 +129,7 @@ fun LedTestScreen(deviceAddress: String? = null, onBack: () -> Unit) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Text("Prueba de LED", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
+        Text(tr("LED test", "Prueba de LED"), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Velt.T1)
 
         when (stage) {
             LedStage.CONNECTING -> Row(
@@ -136,10 +137,10 @@ fun LedTestScreen(deviceAddress: String? = null, onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp, color = Velt.Cyan)
-                Text("Conectando con el sensor...", color = Velt.T2)
+                Text(tr("Connecting to the sensor...", "Conectando con el sensor..."), color = Velt.T2)
             }
-            LedStage.ERROR -> Text(errorMessage ?: "Error", color = Velt.Red)
-            LedStage.READY -> Text("Conectado", color = Velt.Green)
+            LedStage.ERROR -> Text(errorMessage ?: tr("Error", "Error"), color = Velt.Red)
+            LedStage.READY -> Text(tr("Connected", "Conectado"), color = Velt.Green)
         }
 
         if (stage == LedStage.READY) {
@@ -163,7 +164,7 @@ fun LedTestScreen(deviceAddress: String? = null, onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Parpadeo (blink_en)", color = Velt.T1, fontSize = 15.sp)
+                Text(tr("Blink (blink_en)", "Parpadeo (blink_en)"), color = Velt.T1, fontSize = 15.sp)
                 Switch(checked = blink, onCheckedChange = { blink = it; send() })
             }
 
@@ -185,7 +186,7 @@ fun LedTestScreen(deviceAddress: String? = null, onBack: () -> Unit) {
                 OutlinedButton(
                     onClick = { send() },
                     modifier = Modifier.weight(1f)
-                ) { Text("Reenviar color") }
+                ) { Text(tr("Resend color", "Reenviar color")) }
             }
 
             EventLog(eventLog)
@@ -193,7 +194,7 @@ fun LedTestScreen(deviceAddress: String? = null, onBack: () -> Unit) {
 
         Spacer(Modifier.height(4.dp))
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text("Volver")
+            Text(tr("Back", "Volver"))
         }
     }
 }
@@ -208,10 +209,10 @@ private fun EventLog(lines: List<String>) {
             .border(1.dp, Velt.Border, RoundedCornerShape(12.dp))
             .padding(14.dp)
     ) {
-        Text("Eventos del sensor", color = Velt.T2, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Sensor events", "Eventos del sensor"), color = Velt.T2, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         if (lines.isEmpty()) {
-            Text("(sin eventos)", color = Velt.T3, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            Text(tr("(no events)", "(sin eventos)"), color = Velt.T3, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
         } else {
             lines.forEach { line ->
                 val color = when {

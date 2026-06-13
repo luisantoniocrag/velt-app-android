@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.velt.ui.i18n.tr
 
 // "OpenPalm" es el nombre de fábrica del hardware; debe coincidir literalmente para filtrar el dispositivo.
 private const val DEVICE_NAME_PREFIX = "OpenPalm"
@@ -80,13 +81,19 @@ fun BluetoothScreen(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
             if (lm?.isLocationEnabled != true) {
-                scanError = "Activa la ubicación del sistema para buscar dispositivos."
+                scanError = tr(
+                    "Turn on system location to search for devices.",
+                    "Activa la ubicación del sistema para buscar dispositivos."
+                )
                 return
             }
         }
         val started = adapter?.startDiscovery() == true
         if (!started) {
-            scanError = "No se pudo iniciar la búsqueda. Revisa los permisos de Bluetooth."
+            scanError = tr(
+                "Couldn't start the search. Check Bluetooth permissions.",
+                "No se pudo iniciar la búsqueda. Revisa los permisos de Bluetooth."
+            )
         }
     }
 
@@ -166,12 +173,15 @@ fun BluetoothScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Dispositivos Bluetooth", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Bluetooth devices", "Dispositivos Bluetooth"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
         if (!isEnabled) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    "Bluetooth está desactivado. Actívalo desde los ajustes del sistema.",
+                    tr(
+                        "Bluetooth is off. Turn it on from system settings.",
+                        "Bluetooth está desactivado. Actívalo desde los ajustes del sistema."
+                    ),
                     color = Color(0xFFF44336),
                     modifier = Modifier.padding(16.dp)
                 )
@@ -179,7 +189,7 @@ fun BluetoothScreen(
             OutlinedButton(
                 onClick = { isEnabled = adapter?.isEnabled == true; refreshPaired() },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Reintentar") }
+            ) { Text(tr("Retry", "Reintentar")) }
         } else {
             Button(
                 onClick = {
@@ -198,9 +208,9 @@ fun BluetoothScreen(
                         strokeWidth = 2.dp
                     )
                     Spacer(Modifier.size(8.dp))
-                    Text("Buscando... (toca para detener)")
+                    Text(tr("Searching... (tap to stop)", "Buscando... (toca para detener)"))
                 } else {
-                    Text("Buscar dispositivos")
+                    Text(tr("Search devices", "Buscar dispositivos"))
                 }
             }
 
@@ -220,7 +230,7 @@ fun BluetoothScreen(
                 if (paired.isNotEmpty()) {
                     item {
                         Text(
-                            "Emparejados",
+                            tr("Paired", "Emparejados"),
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF2196F3),
                             modifier = Modifier.padding(top = 4.dp)
@@ -228,11 +238,11 @@ fun BluetoothScreen(
                     }
                     items(paired) { device ->
                         DeviceRow(
-                            name = device.name ?: "Desconocido",
+                            name = device.name ?: tr("Unknown", "Desconocido"),
                             address = device.address,
                             isSelected = device.address == selectedAddress,
                             isBonding = false,
-                            actionLabel = if (device.address == selectedAddress) "Seleccionado" else "Usar",
+                            actionLabel = if (device.address == selectedAddress) tr("Selected", "Seleccionado") else tr("Use", "Usar"),
                             onAction = { onDeviceSelected(device.address, device.name ?: device.address) }
                         )
                     }
@@ -242,7 +252,7 @@ fun BluetoothScreen(
                 if (available.isNotEmpty()) {
                     item {
                         Text(
-                            "Disponibles",
+                            tr("Available", "Disponibles"),
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF9E9E9E),
                             modifier = Modifier.padding(top = 8.dp)
@@ -250,11 +260,11 @@ fun BluetoothScreen(
                     }
                     items(available) { device ->
                         DeviceRow(
-                            name = device.name ?: "Desconocido",
+                            name = device.name ?: tr("Unknown", "Desconocido"),
                             address = device.address,
                             isSelected = false,
                             isBonding = bonding.contains(device.address),
-                            actionLabel = "Emparejar",
+                            actionLabel = tr("Pair", "Emparejar"),
                             onAction = {
                                 adapter?.cancelDiscovery()
                                 device.createBond()
@@ -267,10 +277,12 @@ fun BluetoothScreen(
                     item {
                         Text(
                             text = if (isScanning) {
-                                "Buscando sensores \"$DEVICE_NAME_PREFIX\"..."
+                                tr("Searching for \"$DEVICE_NAME_PREFIX\" sensors...", "Buscando sensores \"$DEVICE_NAME_PREFIX\"...")
                             } else {
-                                "No se encontraron dispositivos \"$DEVICE_NAME_PREFIX\". " +
-                                    "Toca \"Buscar dispositivos\"."
+                                tr(
+                                    "No \"$DEVICE_NAME_PREFIX\" devices found. Tap \"Search devices\".",
+                                    "No se encontraron dispositivos \"$DEVICE_NAME_PREFIX\". Toca \"Buscar dispositivos\"."
+                                )
                             },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 16.dp)
@@ -281,7 +293,7 @@ fun BluetoothScreen(
         }
 
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text("Volver")
+            Text(tr("Back", "Volver"))
         }
     }
 }

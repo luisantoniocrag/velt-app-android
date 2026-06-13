@@ -12,6 +12,7 @@ import com.velt.data.remote.Merchant
 import com.velt.data.remote.WithdrawalEvent
 import com.velt.data.remote.WithdrawalStatus
 import com.velt.data.repository.PaymentRepository
+import com.velt.ui.i18n.tr
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -53,13 +54,17 @@ class WithdrawViewModel(private val repo: PaymentRepository) : ViewModel() {
         viewModelScope.launch {
             val merchants = repo.merchants()
             if (merchants !is ApiResult.Success) {
-                state = WithdrawState.Failed("No se pudieron cargar tus comercios.")
+                state = WithdrawState.Failed(
+                    tr("Couldn't load your merchants.", "No se pudieron cargar tus comercios.")
+                )
                 return@launch
             }
             // DECISIÓN: el demo opera con un solo comercio — se usa el primero de la lista.
             val first = merchants.data.firstOrNull()
             if (first == null) {
-                state = WithdrawState.Failed("Necesitas un comercio antes de retirar.")
+                state = WithdrawState.Failed(
+                    tr("You need a merchant before withdrawing.", "Necesitas un comercio antes de retirar.")
+                )
                 return@launch
             }
             when (val detail = repo.merchant(first.id)) {
@@ -68,9 +73,13 @@ class WithdrawViewModel(private val repo: PaymentRepository) : ViewModel() {
                     state = WithdrawState.EnterDetails
                 }
                 is ApiResult.Failure ->
-                    state = WithdrawState.Failed(detail.message ?: "No se pudo cargar el saldo.")
+                    state = WithdrawState.Failed(detail.message
+                        ?: tr("Couldn't load the balance.", "No se pudo cargar el saldo."))
                 is ApiResult.NetworkError ->
-                    state = WithdrawState.Failed("Sin conexión. Revisa tu internet e inténtalo de nuevo.")
+                    state = WithdrawState.Failed(tr(
+                        "No connection. Check your internet and try again.",
+                        "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                    ))
             }
         }
     }
@@ -88,7 +97,8 @@ class WithdrawViewModel(private val repo: PaymentRepository) : ViewModel() {
                 }
                 is ApiResult.Failure ->
                     errorMessage = readableReason(result.code ?: result.message ?: "withdrawal_failed")
-                is ApiResult.NetworkError -> errorMessage = "Sin conexión. Inténtalo de nuevo."
+                is ApiResult.NetworkError -> errorMessage =
+                    tr("No connection. Try again.", "Sin conexión. Inténtalo de nuevo.")
             }
         }
     }
@@ -136,12 +146,20 @@ class WithdrawViewModel(private val repo: PaymentRepository) : ViewModel() {
     }
 
     private fun readableReason(reason: String): String = when (reason) {
-        "insufficient_funds" -> "El comercio no tiene saldo suficiente."
-        "account_not_custodial" -> "La cuenta del comercio es externa: Velt no custodia su llave y no puede retirar."
-        "not_account_owner" -> "No eres el dueño de este comercio."
-        "rpc_timeout" -> "La red tardó demasiado en responder. Intenta de nuevo."
-        "tx_reverted" -> "La transacción fue rechazada en la cadena."
-        "withdrawal_failed", "payment_failed" -> "El retiro no pudo completarse."
+        "insufficient_funds" ->
+            tr("The merchant doesn't have enough balance.", "El comercio no tiene saldo suficiente.")
+        "account_not_custodial" -> tr(
+            "This merchant account is external: Velt doesn't hold its key and can't withdraw.",
+            "La cuenta del comercio es externa: Velt no custodia su llave y no puede retirar."
+        )
+        "not_account_owner" ->
+            tr("You're not the owner of this merchant.", "No eres el dueño de este comercio.")
+        "rpc_timeout" ->
+            tr("The network took too long to respond. Try again.", "La red tardó demasiado en responder. Intenta de nuevo.")
+        "tx_reverted" ->
+            tr("The transaction was rejected on-chain.", "La transacción fue rechazada en la cadena.")
+        "withdrawal_failed", "payment_failed" ->
+            tr("The withdrawal couldn't be completed.", "El retiro no pudo completarse.")
         else -> reason
     }
 

@@ -1,7 +1,6 @@
 package com.velt.ui.onboarding
 
 import android.content.Context
-import java.util.Locale
 
 object LanguagePreference {
     private const val PREFS = "velt_prefs"
@@ -12,7 +11,8 @@ object LanguagePreference {
         return when (prefs.getString(KEY, null)) {
             Lang.ES.name -> Lang.ES
             Lang.EN.name -> Lang.EN
-            else -> systemDefault()
+            // DECISIÓN: inglés por default (en vez de seguir el idioma del sistema).
+            else -> Lang.EN
         }
     }
 
@@ -22,7 +22,4 @@ object LanguagePreference {
             .putString(KEY, lang.name)
             .apply()
     }
-
-    private fun systemDefault(): Lang =
-        if (Locale.getDefault().language == "es") Lang.ES else Lang.EN
 }

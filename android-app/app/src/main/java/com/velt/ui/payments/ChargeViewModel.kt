@@ -12,6 +12,7 @@ import com.velt.data.remote.Merchant
 import com.velt.data.remote.PaymentEvent
 import com.velt.data.remote.PaymentStatus
 import com.velt.data.repository.PaymentRepository
+import com.velt.ui.i18n.tr
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -77,11 +78,15 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
                     state = if (merchant == null) ChargeState.CreateMerchant else ChargeState.EnterAmount
                 }
                 is ApiResult.Failure -> {
-                    errorMessage = result.message ?: "No se pudieron cargar tus comercios."
+                    errorMessage = result.message
+                        ?: tr("Couldn't load your merchants.", "No se pudieron cargar tus comercios.")
                     state = ChargeState.CreateMerchant
                 }
                 is ApiResult.NetworkError -> {
-                    errorMessage = "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                    errorMessage = tr(
+                        "No connection. Check your internet and try again.",
+                        "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                    )
                     state = ChargeState.CreateMerchant
                 }
             }
@@ -97,8 +102,10 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
                     merchant = result.data
                     state = ChargeState.EnterAmount
                 }
-                is ApiResult.Failure -> errorMessage = result.message ?: "No se pudo crear el comercio."
-                is ApiResult.NetworkError -> errorMessage = "Sin conexión. Inténtalo de nuevo."
+                is ApiResult.Failure -> errorMessage = result.message
+                    ?: tr("Couldn't create the merchant.", "No se pudo crear el comercio.")
+                is ApiResult.NetworkError -> errorMessage =
+                    tr("No connection. Try again.", "Sin conexión. Inténtalo de nuevo.")
             }
         }
     }
@@ -113,8 +120,10 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
                     state = ChargeState.AwaitingPalm(result.data.paymentId)
                     track(result.data.paymentId, result.data.wsUrl)
                 }
-                is ApiResult.Failure -> errorMessage = result.message ?: "No se pudo iniciar el cobro."
-                is ApiResult.NetworkError -> errorMessage = "Sin conexión. Inténtalo de nuevo."
+                is ApiResult.Failure -> errorMessage = result.message
+                    ?: tr("Couldn't start the charge.", "No se pudo iniciar el cobro.")
+                is ApiResult.NetworkError -> errorMessage =
+                    tr("No connection. Try again.", "Sin conexión. Inténtalo de nuevo.")
             }
         }
     }
@@ -126,8 +135,10 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
         viewModelScope.launch {
             when (val result = repo.authorize(paymentId, personId)) {
                 is ApiResult.Failure ->
-                    failWith(result.code ?: result.message ?: "No se pudo autorizar el pago.")
-                is ApiResult.NetworkError -> failWith("Sin conexión durante la autorización.")
+                    failWith(result.code ?: result.message
+                        ?: tr("Couldn't authorize the payment.", "No se pudo autorizar el pago."))
+                is ApiResult.NetworkError ->
+                    failWith(tr("No connection during authorization.", "Sin conexión durante la autorización."))
                 is ApiResult.Success -> Unit
             }
         }
@@ -143,11 +154,12 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
         viewModelScope.launch {
             when (val result = repo.confirm(held.paymentId)) {
                 is ApiResult.Failure -> {
-                    errorMessage = result.message ?: "No se pudo confirmar la entrega."
+                    errorMessage = result.message
+                        ?: tr("Couldn't confirm delivery.", "No se pudo confirmar la entrega.")
                     state = held.copy(confirming = false)
                 }
                 is ApiResult.NetworkError -> {
-                    errorMessage = "Sin conexión. Inténtalo de nuevo."
+                    errorMessage = tr("No connection. Try again.", "Sin conexión. Inténtalo de nuevo.")
                     state = held.copy(confirming = false)
                 }
                 is ApiResult.Success -> Unit
@@ -225,10 +237,14 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
     }
 
     private fun readableReason(reason: String): String = when (reason) {
-        "insufficient_funds" -> "El pagador no tiene fondos suficientes."
-        "rpc_timeout" -> "La red tardó demasiado en responder. Intenta de nuevo."
-        "tx_reverted" -> "La transacción fue rechazada en la cadena."
-        "payment_failed" -> "El pago no pudo completarse."
+        "insufficient_funds" ->
+            tr("The payer doesn't have enough funds.", "El pagador no tiene fondos suficientes.")
+        "rpc_timeout" ->
+            tr("The network took too long to respond. Try again.", "La red tardó demasiado en responder. Intenta de nuevo.")
+        "tx_reverted" ->
+            tr("The transaction was rejected on-chain.", "La transacción fue rechazada en la cadena.")
+        "payment_failed" ->
+            tr("The payment couldn't be completed.", "El pago no pudo completarse.")
         else -> reason
     }
 

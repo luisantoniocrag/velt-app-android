@@ -30,6 +30,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.velt.R
+import com.velt.ui.i18n.tr
 import com.velt.ui.theme.Velt
 
 @Composable
@@ -87,7 +88,7 @@ fun ObBackHeader(title: String, onBack: () -> Unit) {
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Atrás",
+                contentDescription = tr("Back", "Atrás"),
                 tint = Velt.T2,
                 modifier = Modifier.size(16.dp)
             )
