@@ -51,6 +51,9 @@ const baseSchema = z.object({
     .regex(/^0x[a-fA-F0-9]{64}$/, "llave privada 0x inválida")
     .optional(),
   SEPOLIA_RPC_URL: z.string().url().optional(),
+  // ENSv2 (Sepolia): registry desplegado para ENS_PARENT_NAME + su PermissionedResolver.
+  ENS_V2_REGISTRY_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  ENS_V2_RESOLVER_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
 
   // Blink deposit SDK (payer funding on Base). Optional: without them the Blink routes
   // answer 503 blink_not_configured and the rest of the server works normally.
