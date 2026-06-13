@@ -49,8 +49,19 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
         private set
     var lastPersonId: String? = null
         private set
+    // Saldo USDC del pagador tras el cobro (el "antes" = este saldo + el monto cobrado).
+    var payerBalanceUsdc by mutableStateOf<String?>(null)
+        private set
 
     private var trackingJob: Job? = null
+
+    private fun fetchPayerBalance() {
+        val personId = lastPersonId ?: return
+        viewModelScope.launch {
+            val r = repo.payerWallet(personId)
+            if (r is ApiResult.Success) payerBalanceUsdc = r.data.usdcBalance
+        }
+    }
 
     init {
         loadMerchant()
@@ -224,7 +235,10 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
                 state = ChargeState.Authorizing(paymentId)
             }
             "held" -> state = ChargeState.Held(paymentId, event.escrowTxHash, event.releaseAfter)
-            "settled" -> state = ChargeState.Settled(event.txHash, event.payerEnsName)
+            "settled" -> {
+                state = ChargeState.Settled(event.txHash, event.payerEnsName)
+                fetchPayerBalance()
+            }
             "failed" -> failWith(event.reason ?: "payment_failed")
         }
     }
@@ -240,10 +254,10 @@ class ChargeViewModel(private val repo: PaymentRepository) : ViewModel() {
                     confirming = held?.confirming ?: false
                 )
             }
-            "settled" -> state = ChargeState.Settled(
-                status.txHash ?: status.releaseTxHash,
-                status.payerEnsName
-            )
+            "settled" -> {
+                state = ChargeState.Settled(status.txHash ?: status.releaseTxHash, status.payerEnsName)
+                fetchPayerBalance()
+            }
             "failed" -> failWith("payment_failed")
         }
     }

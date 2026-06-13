@@ -671,6 +671,10 @@ private fun SettledStep(vm: ChargeViewModel, state: ChargeState.Settled, onBack:
                 Spacer(Modifier.height(12.dp))
                 PayerCard(ens)
             }
+            vm.payerBalanceUsdc?.let { balance ->
+                Spacer(Modifier.height(8.dp))
+                PayerBalanceRow(balanceUsdc = balance, chargedCents = vm.amountCents)
+            }
             state.txHash?.let { hash ->
                 Spacer(Modifier.height(12.dp))
                 CopyableHash(label = tr("Settlement tx", "Tx liquidación"), hash = hash)
@@ -832,6 +836,37 @@ internal fun StatusRow(color: Color, label: String, icon: androidx.compose.ui.gr
             letterSpacing = 2.sp, color = color
         )
         Box(Modifier.weight(1f).height(1.dp).background(color.copy(alpha = 0.2f)))
+    }
+}
+
+// Saldo del pagador tras el cobro, con el "antes" = saldo posterior + el monto cobrado.
+@Composable
+private fun PayerBalanceRow(balanceUsdc: String, chargedCents: Long) {
+    val after = balanceUsdc.toDoubleOrNull()
+    val before = after?.let { it + chargedCents / 100.0 }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Velt.Surf)
+            .border(1.dp, Velt.Border, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(tr("Payer balance", "Saldo del pagador").uppercase(), fontSize = 9.sp, letterSpacing = 1.sp, color = Velt.T3)
+            before?.let {
+                Text(
+                    "$%,.2f → ".format(it),
+                    fontSize = 11.sp, color = Velt.T3, fontFamily = DmSans
+                )
+            }
+        }
+        Text(
+            "$$balanceUsdc",
+            fontSize = 18.sp, fontFamily = DmSans, fontWeight = FontWeight.Light, color = Velt.Cyan
+        )
     }
 }
 
