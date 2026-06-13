@@ -1,9 +1,12 @@
 package com.velt.sensor
 
 object VeltSensorConfig {
-    const val CLIENT_ID = "23547798-2dd1-4f89-bb76-75f457e55094"
-    const val SHARED_SECRET = "facd292b-93ce-450c-98a4-3d99464c1653"
-    const val ENDPOINT = "https://openpalm.io/admin-app/"
+    // PRUEBA (temporal): bioserver apuntado al sandbox de Fulcrum (openpalm.io está caído).
+    // Revertir a OpenPalm: CLIENT_ID=23547798-2dd1-4f89-bb76-75f457e55094,
+    // SHARED_SECRET=facd292b-93ce-450c-98a4-3d99464c1653, ENDPOINT=https://openpalm.io/admin-app/
+    const val CLIENT_ID = "54d64a58-ef27-4739-b540-06bbbe857441"
+    const val SHARED_SECRET = "94918e42-3593-4d1b-8647-ffb717ec0c00"
+    const val ENDPOINT = "https://sandbox.fulcrumbiometrics.com/appserver/"
 
     // null = primer dispositivo emparejado (o el primero cuyo nombre coincida con el prefijo del sensor).
     val SPP_DEVICE_NAME: String? = null
