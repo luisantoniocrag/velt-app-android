@@ -6,6 +6,7 @@ import { authRoutes } from "./routes/auth.js";
 import { merchantRoutes } from "./routes/merchants.js";
 import { paymentRoutes, startEscrowAutoRelease } from "./routes/payments.js";
 import { blinkRoutes, blinkEnabled } from "./routes/blink.js";
+import { payerRoutes } from "./routes/payers.js";
 import { fundRoutes } from "./routes/fund.js";
 import { ensEnabled } from "./ens/registrar.js";
 import { paymentWsRoutes } from "./ws/payments.js";
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
       await api.register(authRoutes);
       await api.register(merchantRoutes);
       await api.register(paymentRoutes);
+      await api.register(payerRoutes);
       await api.register(blinkRoutes);
     },
     { prefix: "/api/v1" },
