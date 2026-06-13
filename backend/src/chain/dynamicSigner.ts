@@ -88,6 +88,8 @@ export class DynamicSigner implements Signer {
       walletMetadata: created.walletMetadata,
       serverKeyShares: created.externalServerKeyShares,
     });
+    // Manual gas funding: surface every new wallet so its Arc native balance can be topped up.
+    console.log(`[dynamic] nueva wallet '${subjectId}' → ${address} (fondear gas nativo en Arc)`);
     return { address };
   }
 
