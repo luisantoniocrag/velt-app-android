@@ -227,6 +227,7 @@ private fun AppNavigation(modifier: Modifier = Modifier) {
                     selectedDeviceName = selectedName,
                     onBluetoothClick = { navigateWithBtPermissions(Screen.BLUETOOTH) },
                     onPalmClick = { navigateWithBtPermissions(Screen.PALM) },
+                    onEnrollClick = { navigateWithBtPermissions(Screen.ENROLL) },
                     onLogout = {
                         scope.launch {
                             app.container.authRepository.logout()

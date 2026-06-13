@@ -106,6 +106,7 @@ fun ConfigMenuScreen(
     selectedDeviceName: String?,
     onBluetoothClick: () -> Unit,
     onPalmClick: () -> Unit,
+    onEnrollClick: () -> Unit,
     onLogout: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -141,6 +142,21 @@ fun ConfigMenuScreen(
             )
             Spacer(Modifier.size(12.dp))
             Text(tr("Validate palm", "Validar palma"), fontSize = 18.sp)
+        }
+
+        Button(
+            onClick = onEnrollClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_palm_icon),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.size(12.dp))
+            Text(tr("Enroll palm", "Registrar palma"), fontSize = 18.sp)
         }
 
         Text(
